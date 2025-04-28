@@ -344,9 +344,28 @@ export default function Home() {
           />
         </div>
         <div className="flex-1 border rounded-lg overflow-hidden bg-[#282a36] border-[#44475a]">
-          <div className="flex items-center gap-2 p-2 border-b bg-[#44475a] text-white border-[#44475a]">
-            <TerminalIcon size={18} />
-            <span className="font-medium">Salida</span>
+          <div className="flex items-center  justify-between gap-2 p-2 border-b bg-[#44475a] text-white border-[#44475a]">
+            <div className="flex items-center gap-2">
+              <TerminalIcon size={18} />
+              <span className="font-medium">Salida</span>
+            </div>
+            {output.trim() !== "" && (
+              <button
+              onClick={() => {
+                const blob = new Blob([output], { type: "text/plain" });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = "program.s";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              className="flex items-center gap-2 p-2 rounded-md bg-gray-800 text-white hover:bg-gray-700 transition-colors"
+              >
+              <Save size={16} />
+              <span>Descargar MakeFile</span>
+              </button>
+            )}
           </div>
           <ReactCodeMirror
             value={output}

@@ -28,6 +28,13 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitVarDcl
     public override Object? VisitVarDcl([NotNull] LanguageParser.VarDclContext context)
     {
+        var varName = context.ID().GetText();
+        c.Comment("Variable declaration: " + varName);
+
+        Visit(context.expr());
+
+        c.TagObject(varName);
+
         return null;
     }
     // VisitFuncDcl
@@ -53,19 +60,47 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         {
             Visit(expr);
             c.Comment("Pop the value to print");
-            c.Pop(Register.X0); // Pop the value to print
-            c.PrintInteger(Register.X0); // Call the print function
+            var value = c.PopObject(Register.X0); // Pop the value to print
+
+            if (value.Type == StackObject.StackObjectType.Int)
+            {
+                c.PrintInteger(Register.X0); // Call the print function
+            }
+            else if (value.Type == StackObject.StackObjectType.String)
+            {
+                c.PrintString(Register.X0);
+            }
         }
+
         return null;
     }
     // VisitExprStmt
     public override Object? VisitExprStmt([NotNull] LanguageParser.ExprStmtContext context)
     {
+        c.Comment("Expression Statement");
+        Visit(context.expr());
+        c.Comment("Pop the value to discard");
+        c.PopObject(Register.X0); // Pop the value to discard
+
         return null;
     }
     // VisitBlockStmt
     public override Object? VisitBlockStmt([NotNull] LanguageParser.BlockStmtContext context)
     {
+        c.Comment("Block Statement");
+        c.NewScope();
+        foreach (var dcl in context.dcl())
+        {
+            Visit(dcl);
+        }
+        int bytesToRemove = c.EndScope();
+        if (bytesToRemove > 0)
+        {
+            c.Comment("Removing " + bytesToRemove + " bytes from the stack");
+            c.Mov(Register.X0, bytesToRemove);
+            c.Add(Register.SP, Register.SP, Register.X0); // Remove the bytes from the stack
+            c.Comment("Stack pointer after removing bytes: " + Register.SP);
+        }
         return null;
     }
     // VisitIfStmt
@@ -132,6 +167,30 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitMulDiv
     public override Object? VisitMulDiv([NotNull] LanguageParser.MulDivContext context)
     {
+        var operation = context.op.Text;
+        // 1 * 2
+        // Top -> []
+        c.Comment("Visit left operand");
+        Visit(context.expr(0)); // Visit 1 -> [1]
+        c.Comment("Visit right operand");
+        Visit(context.expr(1)); // Visit 2 -> [1, 2]
+        c.Comment("Pop operands");
+        c.Pop(Register.X1); // Pop 2 -> [1]
+        c.Pop(Register.X0); // Pop 1 -> []
+        if (operation == "*")
+        {
+            c.Mul(Register.X0, Register.X0, Register.X1); // X0 = 1 * 2
+        }
+        else if (operation == "/")
+        {
+            c.Div(Register.X0, Register.X0, Register.X1); // X0 = 1 / 2
+        }
+        // else if (operation == "%")
+        // {
+        //     c.Mod(Register.X0, Register.X0, Register.X1); // X0 = 1 % 2
+        // }
+        c.Comment("Push result");
+        c.Push(Register.X0); // Push result -> [result]
         return null;
     }
     // VisitAddSub
@@ -146,8 +205,10 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         Visit(context.expr(1)); // Visit 2 -> [1, 2]
 
         c.Comment("Pop operands");
-        c.Pop(Register.X1); // Pop 2 -> [1]
-        c.Pop(Register.X0); // Pop 1 -> []
+        var right = c.PopObject(Register.X1); // Pop 2 -> [1]
+        var left = c.PopObject(Register.X0); // Pop 1 -> []
+
+        // Aqui ya se puede verificar el tipo de left y right
 
         if (operation == "+")
         {
@@ -160,6 +221,8 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
         c.Comment("Push result");
         c.Push(Register.X0); // Push result -> [result]
+        c.PushObject(c.CloneObject(left));
+
         return null;
     }
     // VisitParens
@@ -180,6 +243,11 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitString
     public override Object? VisitString([NotNull] LanguageParser.StringContext context)
     {
+        var value = context.STRING().GetText().Trim('"');
+        c.Comment("String Constante: " + value);
+        var stringObj = c.StringObject();
+        c.PushConstant(stringObj, value);
+
         return null;
     }
     // VisitInt
@@ -187,8 +255,10 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     {
         var value = context.INT().GetText();
         c.Comment("Constante: " + value);
-        c.Mov(Register.X0, int.Parse(value));
-        c.Push(Register.X0);
+
+        var intObject = c.IntObject();
+        c.PushConstant(intObject, int.Parse(value)); // Push the integer value to the stack
+
         return null;
     }
     // VisitStruct
@@ -214,11 +284,46 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitIdentifier
     public override Object? VisitIdentifier([NotNull] LanguageParser.IdentifierContext context)
     {
+        var id = context.ID().GetText();
+
+        var (offset, obj) = c.GetObject(id);
+
+        c.Mov(Register.X0, offset);
+        c.Add(Register.X0, Register.SP, Register.X0);
+
+        c.Ldr(Register.X0, Register.X0);
+        c.Push(Register.X0);
+
+        var newObj = c.CloneObject(obj);
+        newObj.Id = null;
+        c.PushObject(newObj);
+
         return null;
     }
     // VisitAssign
     public override Object? VisitAssign([NotNull] LanguageParser.AssignContext context)
     {
+        var asignee = context.expr(0);
+        if (asignee is LanguageParser.IdentifierContext idContext)
+        {
+            string id = idContext.ID().GetText();
+            c.Comment("Assigning to variable: " + id);
+            Visit(context.expr(1));
+
+            var valueObject = c.PopObject(Register.X0); // Pop the value to assign
+
+            var (offset, varObj) = c.GetObject(id);
+
+            c.Mov(Register.X1, offset);
+            c.Add(Register.X1, Register.SP, Register.X1); // Calculate the address of the variable
+            c.Str(Register.X0, Register.X1); // Store the value in the variable
+
+            varObj.Type = valueObject.Type;
+
+            c.Push(Register.X0);
+            c.PushObject(c.CloneObject(varObj));
+
+        }
         return null;
     }
 

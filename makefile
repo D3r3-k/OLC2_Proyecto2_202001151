@@ -8,6 +8,8 @@ TARGET = program
 $(TARGET): $(TARGET).o
 	$(LD) $< -o $@
 	rm -f $<
+	@echo "----------------------------------------"
+	@echo "Compilación finalizada."
 
 %.o: %.s
 	$(AS) -mcpu=$(CPU) $< -o $@
