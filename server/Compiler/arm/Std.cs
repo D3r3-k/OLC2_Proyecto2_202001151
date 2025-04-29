@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 public class StandardLibrary
 {
     private readonly HashSet<string> UsedFunctions = new HashSet<string>();
@@ -18,6 +16,12 @@ public class StandardLibrary
             UsedSymbols.Add("dot_char");
             UsedSymbols.Add("zero_char");
         }
+        else if (function == "print_bool")
+        {
+            UsedSymbols.Add("true_str");
+            UsedSymbols.Add("false_str");
+        }
+
     }
 
     public string GetFunctionDefinitions()
@@ -49,7 +53,7 @@ public class StandardLibrary
 
     private readonly static Dictionary<string, string> FunctionDefinitions = new Dictionary<string, string>
     {
-        { "print_integer", @"
+    { "print_integer", @"
 //--------------------------------------------------------------
 // print_integer - Prints a signed integer to stdout
 //
@@ -150,8 +154,7 @@ print_result:
     "
     },
 
-    {
-        "print_string", @"
+    { "print_string", @"
 //--------------------------------------------------------------
 // print_string - Prints a null-terminated string to stdout
 //
@@ -193,8 +196,8 @@ print_done:
     ret
     // Return to the caller
     "},
-    {
-        "print_double", @"
+
+    { "print_double", @"
 //--------------------------------------------------------------
 // print_double - Prints a double precision float to stdout
 //
@@ -297,12 +300,51 @@ exit_function:
     ldp x29, x30, [sp], #16
     ret
     "},
-    };
+
+    {
+        "print_bool", @"
+    //--------------------------------------------------------------
+    // print_bool - Prints a boolean value to stdout
+    //
+    // Input:
+    //   x0 - The boolean value (0 for false, non-zero for true)
+    //--------------------------------------------------------------
+    print_bool:
+        // Save registers
+        stp x29, x30, [sp, #-16]!
+        
+        // Check if value is true or false
+        cmp x0, #0
+        beq print_false
+        
+        // Print 'true'
+        adr x1, true_str
+        mov x2, #4                  // Length of 'true'
+        b do_print
+        
+    print_false:
+        // Print 'false'
+        adr x1, false_str
+        mov x2, #5                  // Length of 'false'
+        
+    do_print:
+        mov x0, #1                  // File descriptor: stdout
+        mov x8, #64                 // Syscall: write
+        svc #0
+        
+        // Restore registers and return
+        ldp x29, x30, [sp], #16
+        ret
+        "}
+};
 
     private readonly static Dictionary<string, string> Symbols = new Dictionary<string, string>
     {
         { "minus_sign", @"minus_sign: .ascii ""-""" },
         { "dot_char", @"dot_char: .ascii "".""" },
-        { "zero_char", @"zero_char: .ascii ""0""" }
+        { "zero_char", @"zero_char: .ascii ""0""" },
+        {"true_str", @"true_str: .ascii ""true""" },
+        { "false_str", @"false_str: .ascii ""false""" }
     };
+
 }

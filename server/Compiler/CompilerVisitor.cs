@@ -6,6 +6,10 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 {
     // TODO: Atributos
     public ArmGenerator c = new ArmGenerator();
+    private string? continueLabel = null;
+    private string? breakLabel = null;
+    private string? returnLabel = null;
+
     // TODO: Contructor
     public CompilerVisitor()
     {
@@ -40,6 +44,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitFuncDcl
     public override Object? VisitFuncDcl([NotNull] LanguageParser.FuncDclContext context)
     {
+        
         return null;
     }
     // // VisitNodo
@@ -60,11 +65,20 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         {
             Visit(expr);
             c.Comment("Pop the value to print");
-            var value = c.PopObject(Register.X0); // Pop the value to print
+            var isDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
+            var value = c.PopObject(isDouble ? Register.D0 : Register.X0); // Pop the value to print
 
             if (value.Type == StackObject.StackObjectType.Int)
             {
                 c.PrintInteger(Register.X0); // Call the print function
+            }
+            else if (value.Type == StackObject.StackObjectType.Float)
+            {
+                c.PrintFloat();
+            }
+            else if (value.Type == StackObject.StackObjectType.Bool)
+            {
+                c.PrintBool(Register.X0);
             }
             else if (value.Type == StackObject.StackObjectType.String)
             {
@@ -106,6 +120,32 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitIfStmt
     public override Object? VisitIfStmt([NotNull] LanguageParser.IfStmtContext context)
     {
+        c.Comment("If Statement");
+        Visit(context.expr()); // Visit the condition
+        c.PopObject(Register.X0); // Pop the condition value
+
+        var hasElse = context.stmt().Length > 1;
+        if (hasElse)
+        {
+            var elseLabel = c.GetLabel();
+            var endLabel = c.GetLabel();
+
+            c.Cbz(Register.X0, elseLabel); // Compare the condition with 0
+            Visit(context.stmt(0)); // Visit the true branch
+            c.B(endLabel); // Jump to the end
+            c.SetLabel(elseLabel); // Set the else label
+            Visit(context.stmt(1)); // Visit the false branch
+            c.SetLabel(endLabel); // Set the end label
+        }
+        else
+        {
+            var endLabel = c.GetLabel();
+
+            c.Cbz(Register.X0, endLabel); // Compare the condition with 0
+            Visit(context.stmt(0)); // Visit the true branch
+            c.SetLabel(endLabel); // Set the end label
+        }
+
         return null;
     }
     // VisitSwitchStmt
@@ -116,11 +156,71 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitForStmt
     public override Object? VisitForStmt([NotNull] LanguageParser.ForStmtContext context)
     {
+        var startLabel = c.GetLabel();
+        var endLabel = c.GetLabel();
+        var incrementLabel = c.GetLabel();
+
+        var prevContinueLabel = continueLabel;
+        var prevBreakLabel = breakLabel;
+
+        continueLabel = incrementLabel;
+        breakLabel = endLabel;
+
+        c.Comment("For Statement");
+        c.NewScope();
+
+        Visit(context.forInit()); // Visit the initialization
+        c.SetLabel(startLabel);
+        Visit(context.expr(0)); // Visit the condition
+        c.PopObject(Register.X0); // Pop the condition value
+        c.Cbz(Register.X0, endLabel); // Compare the condition with 0
+        Visit(context.stmt()); // Visit the body
+        c.SetLabel(incrementLabel);
+        Visit(context.expr(1)); // Visit the increment
+        c.B(startLabel); // Jump to the start label
+        c.SetLabel(endLabel); // Set the end label
+
+        c.Comment("End of For Statement");
+
+        var bytesToRemove = c.EndScope();
+        if (bytesToRemove > 0)
+        {
+            c.Comment("Removing " + bytesToRemove + " bytes from the stack");
+            c.Mov(Register.X0, bytesToRemove);
+            c.Add(Register.SP, Register.SP, Register.X0); // Remove the bytes from the stack
+            c.Comment("Stack pointer after removing bytes: " + Register.SP);
+        }
+        continueLabel = prevContinueLabel;
+        breakLabel = prevBreakLabel;
+
         return null;
     }
     // VisitForCondStmt
     public override Object? VisitForCondStmt([NotNull] LanguageParser.ForCondStmtContext context)
     {
+        c.Comment("For Condition Statement");
+        var startLabel = c.GetLabel();
+        var endLabel = c.GetLabel();
+
+        var prevContinueLabel = continueLabel;
+        var prevBreakLabel = breakLabel;
+        continueLabel = startLabel;
+        breakLabel = endLabel;
+
+        c.SetLabel(startLabel);
+        Visit(context.expr()); // Visit the condition
+        c.PopObject(Register.X0); // Pop the condition value
+
+        c.Cbz(Register.X0, endLabel); // Compare the condition with 0
+        Visit(context.stmt()); // Visit the body
+        c.B(startLabel); // Jump to the start label
+        c.SetLabel(endLabel); // Set the end label
+
+        c.Comment("End of For Condition Statement");
+
+        continueLabel = prevContinueLabel;
+        breakLabel = prevBreakLabel;
+
         return null;
     }
     // VisitForRangeStmt
@@ -139,12 +239,22 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitBreakStmt
     public override Object? VisitBreakStmt([NotNull] LanguageParser.BreakStmtContext context)
     {
+        c.Comment("Break Statement");
+        if (breakLabel != null)
+        {
+            c.B(breakLabel); // Jump to the break label
+        }
         return null;
     }
     // VisitContinueStmt
     public override Object? VisitContinueStmt([NotNull] LanguageParser.ContinueStmtContext context)
     {
-        throw new ContinueException();
+        c.Comment("Continue Statement");
+        if (continueLabel != null)
+        {
+            c.B(continueLabel); // Jump to the continue label
+        }
+        return null;
     }
     // VisitReturnStmt
     public override Object? VisitReturnStmt([NotNull] LanguageParser.ReturnStmtContext context)
@@ -200,13 +310,38 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         // 1 + 2
         // Top -> []
         c.Comment("Visit left operand");
-        Visit(context.expr(0)); // Visit 1 -> [1]
+        Visit(context.expr(0)); // Visit 1; TOP -> [1]
         c.Comment("Visit right operand");
-        Visit(context.expr(1)); // Visit 2 -> [1, 2]
-
+        Visit(context.expr(1)); // Visit 2; TOP -> [1, 2]
         c.Comment("Pop operands");
-        var right = c.PopObject(Register.X1); // Pop 2 -> [1]
-        var left = c.PopObject(Register.X0); // Pop 1 -> []
+        var isRightDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
+        var right = c.PopObject(isRightDouble ? Register.D0 : Register.X1); // Pop 2 -> [1]
+        var isLeftDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
+        var left = c.PopObject(isLeftDouble ? Register.D1 : Register.X1); // Pop 1 -> []
+
+
+        if (isLeftDouble || isRightDouble)
+        {
+            if (!isLeftDouble) c.Scvtf(Register.D1, Register.X1); // Convert to double
+            if (!isRightDouble) c.Scvtf(Register.D0, Register.X0); // Convert to double
+
+            if (operation == "+")
+            {
+                c.Fadd(Register.D0, Register.D0, Register.D1); // D1 = 1.0 + 2.0
+            }
+            else if (operation == "-")
+            {
+                c.Fsub(Register.D0, Register.D1, Register.D0); // D1 = 1.0 - 2.0
+            }
+            c.Comment("Push result");
+            c.Push(Register.D0); // Push result -> [result]
+            c.PushObject(c.CloneObject(
+                isLeftDouble ? left : right
+            ));
+
+
+            return null;
+        }
 
         // Aqui ya se puede verificar el tipo de left y right
 
@@ -216,7 +351,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         }
         else if (operation == "-")
         {
-            c.Sub(Register.X0, Register.X0, Register.X1); // X0 = 1 - 2
+            c.Sub(Register.X0, Register.X1, Register.X0); // X0 = 1 - 2
         }
 
         c.Comment("Push result");
@@ -233,6 +368,63 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitRelational
     public override Object? VisitRelational([NotNull] LanguageParser.RelationalContext context)
     {
+        c.Comment("Relational operation");
+        var operation = context.op.Text;
+        Visit(context.expr(0)); // Visit left operand
+        Visit(context.expr(1)); // Visit right operand
+        c.Comment("Pop operands");
+        var isRightDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
+        var right = c.PopObject(isRightDouble ? Register.D0 : Register.X1); // Pop 2 -> [1]
+        var isLeftDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
+        var left = c.PopObject(isLeftDouble ? Register.D1 : Register.X1); // Pop 1 -> []
+        if (isLeftDouble || isRightDouble)
+        {
+            return null;
+        }
+        c.Cmp(Register.X1, Register.X0); // Compare left and right
+        var trueLabel = c.GetLabel();
+        var endLabel = c.GetLabel();
+
+        /*
+        cmp x1, x0
+        [beq] [bne] [blt] [bgt] [ble] [bge] -> true
+        push 0
+        b end
+        trueLabel:
+        push 1
+        end:
+        */
+        switch (operation)
+        {
+            case "<":
+                c.Blt(trueLabel);
+                break;
+            case ">":
+                c.Bgt(trueLabel);
+                break;
+            case "<=":
+                c.Ble(trueLabel);
+                break;
+            case ">=":
+                c.Bge(trueLabel);
+                break;
+            case "==":
+                c.Beq(trueLabel);
+                break;
+            case "!=":
+                c.Bne(trueLabel);
+                break;
+        }
+        c.Mov(Register.X0, 0); // Push false
+        c.Push(Register.X0); // Push result -> [result]
+        c.B(endLabel);
+        c.SetLabel(trueLabel);
+        c.Mov(Register.X0, 1); // Push true
+        c.Push(Register.X0); // Push result -> [result]
+        c.SetLabel(endLabel);
+
+        c.PushObject(c.BoolObject());
+
         return null;
     }
     // VisitIncDec
@@ -274,6 +466,12 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitFloat
     public override Object? VisitFloat([NotNull] LanguageParser.FloatContext context)
     {
+        var value = context.FLOAT().GetText();
+
+        c.Comment("Constante: " + value);
+        var floatObject = c.FloatObject();
+        c.PushConstant(floatObject, double.Parse(value, System.Globalization.CultureInfo.InvariantCulture));
+
         return null;
     }
     // VisitNot
@@ -340,6 +538,11 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitBoolean
     public override Object? VisitBoolean([NotNull] LanguageParser.BooleanContext context)
     {
+        var value = context.BOOL().GetText();
+        c.Comment("Boolean Constante: " + value);
+        var boolObject = c.BoolObject();
+        c.PushConstant(boolObject, value == "true" ? true : false);
+        
         return null;
     }
     // VisitRune

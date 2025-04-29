@@ -16,9 +16,22 @@ public class ArmGenerator
     private readonly StandardLibrary _stdLib = new StandardLibrary();
     private List<StackObject> _stack = new List<StackObject>();
     private int _depth = 0;
-    /*
-        TODO: STACK OPERATIONS
-    */
+    private int labelCounter = 0;
+    public string GetLabel()
+    {
+        return $"L{labelCounter++}";
+    }
+    public void SetLabel(string label)
+    {
+        _instructions.Add($"{label}:");
+    }
+    // TODO: STACK OPERATIONS
+
+    public StackObject TopObject()
+    {
+        return _stack.Last();
+    }
+
     public void PushObject(StackObject stackObject)
     {
         _stack.Add(stackObject);
@@ -32,17 +45,26 @@ public class ArmGenerator
                 Push(Register.X0);
                 break;
             case StackObject.StackObjectType.Float:
-                // TODO: Implement float support
+                long floatBits = BitConverter.DoubleToInt64Bits((double)value);
+                short[] floatArray = new short[4];
+                for (int i = 0; i < 4; i++)
+                {
+                    floatArray[i] = (short)((floatBits >> (i * 16)) & 0xFFFF);
+                }
+                _instructions.Add($"MOVZ X0, #{floatArray[0]}, LSL #0");
+                for (int i = 1; i < 4; i++)
+                {
+                    _instructions.Add($"MOVK X0, #{floatArray[i]}, LSL #{i * 16}");
+                }
+                Push(Register.X0);
                 break;
             case StackObject.StackObjectType.String:
-                // TODO: <---
                 List<byte> stringArray = Utils.StringToByteArray((string)value);
-
                 Push(Register.HP);
                 for (int i = 0; i < stringArray.Count; i++)
                 {
                     var charCode = stringArray[i];
-                    Comment($"Pushing char {charCode} to heap - {(char) charCode}");
+                    Comment($"Pushing char {charCode} to heap - {(char)charCode}");
                     Mov(Register.W0, charCode);
                     Strb(Register.W0, Register.HP);
                     Mov(Register.X0, 1);
@@ -51,7 +73,8 @@ public class ArmGenerator
 
                 break;
             case StackObject.StackObjectType.Bool:
-                // TODO: Implement bool support
+                Mov(Register.X0, (bool)value ? 1 : 0);
+                Push(Register.X0);
                 break;
         }
         PushObject(obj);
@@ -70,6 +93,16 @@ public class ArmGenerator
         return new StackObject
         {
             Type = StackObject.StackObjectType.Int,
+            Length = 8,
+            Depth = _depth,
+            Id = null
+        };
+    }
+    public StackObject BoolObject()
+    {
+        return new StackObject
+        {
+            Type = StackObject.StackObjectType.Bool,
             Length = 8,
             Depth = _depth,
             Id = null
@@ -209,6 +242,78 @@ public class ArmGenerator
         _instructions.Add($"LDR {rd}, [SP], #8");
     }
 
+    /* Float Operations */
+    public void Scvtf(string rd, string rs)
+    {
+        _instructions.Add($"SCVTF {rd}, {rs}");
+    }
+
+    public void Fmov(string rd, string rs)
+    {
+        _instructions.Add($"FMOV {rd}, {rs}");
+    }
+    public void Fadd(string rd, string rs1, string rs2)
+    {
+        _instructions.Add($"FADD {rd}, {rs1}, {rs2}");
+    }
+    public void Fsub(string rd, string rs1, string rs2)
+    {
+        _instructions.Add($"FSUB {rd}, {rs1}, {rs2}");
+    }
+    public void Fmul(string rd, string rs1, string rs2)
+    {
+        _instructions.Add($"FMUL {rd}, {rs1}, {rs2}");
+    }
+    public void Fdiv(string rd, string rs1, string rs2)
+    {
+        _instructions.Add($"FDIV {rd}, {rs1}, {rs2}");
+    }
+
+    public void Cmp(string rs1, string rs2)
+    {
+        _instructions.Add($"CMP {rs1}, {rs2}");
+    }
+    public void Cbz(string rs, string label)
+    {
+        _instructions.Add($"CBZ {rs}, {label}");
+    }
+
+    public void B(string label)
+    {
+        _instructions.Add($"B {label}");
+    }
+
+    public void Beq(string label)
+    {
+        _instructions.Add($"BEQ {label}");
+    }
+    public void Bne(string label)
+    {
+        _instructions.Add($"BNE {label}");
+    }
+    public void Bgt(string label)
+    {
+        _instructions.Add($"BGT {label}");
+    }
+    public void Blt(string label)
+    {
+        _instructions.Add($"BLT {label}");
+    }
+    public void Bge(string label)
+    {
+        _instructions.Add($"BGE {label}");
+    }
+    public void Ble(string label)
+    {
+        _instructions.Add($"BLE {label}");
+    }
+    public void Ret()
+    {
+        _instructions.Add($"RET");
+    }
+
+    //
+
     public void Svc()
     {
         _instructions.Add($"SVC #0");
@@ -228,12 +333,27 @@ public class ArmGenerator
         _instructions.Add($"BL print_integer");
     }
 
+    public void PrintFloat()
+    {
+        _stdLib.Use("print_integer");
+        _stdLib.Use("print_double");
+        _instructions.Add($"BL print_double");
+    }
+
     public void PrintString(string rs)
     {
         _stdLib.Use("print_string");
         _instructions.Add($"MOV X0, {rs}");
         _instructions.Add($"BL print_string");
     }
+
+    public void PrintBool(string rs)
+    {
+        _stdLib.Use("print_bool");
+        _instructions.Add($"MOV X0, {rs}");
+        _instructions.Add($"BL print_bool");
+    }
+
 
     public void Comment(string comment)
     {
