@@ -6,6 +6,23 @@ using server.global;
 public class Extras
 {
 
+    public static StackObject.StackObjectType GetTypeArm(string type)
+    {
+        return type.ToLower() switch
+        {
+            "int" => StackObject.StackObjectType.Int,
+            "float64" => StackObject.StackObjectType.Float,
+            "string" => StackObject.StackObjectType.String,
+            "bool" => StackObject.StackObjectType.Bool,
+            "rune" => StackObject.StackObjectType.Rune,
+            "nil" => StackObject.StackObjectType.Nil,
+            "void" => StackObject.StackObjectType.Void,
+            _ when type.Contains("[][]") => StackObject.StackObjectType.Slice,
+            _ when type.Contains("[]") => StackObject.StackObjectType.Slice,
+            _ => throw new Exception($"Tipo no soportado: {type}"),
+        };
+    }
+
     public static ValueWrapper GetDefaultValue(string type)
     {
         return type.ToLower() switch

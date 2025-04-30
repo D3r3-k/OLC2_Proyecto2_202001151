@@ -1,18 +1,20 @@
-using System.Security.Cryptography.X509Certificates;
+
 using System.Text;
 
 public class StackObject
 {
-    public enum StackObjectType { Int, Float, String, Bool }
+    public enum StackObjectType { Int, Float, String, Bool, Void, Slice, Nil, Rune, Undefine }
     public StackObjectType Type { get; set; }
     public int Length { get; set; }
+    public int Offset { get; set; }
     public int Depth { get; set; }
     public string? Id { get; set; }
 }
 
 public class ArmGenerator
 {
-    private readonly List<string> _instructions = new List<string>();
+    public List<string> _instructions = new List<string>();
+    public List<string> _funcInstructions = new List<string>();
     private readonly StandardLibrary _stdLib = new StandardLibrary();
     private List<StackObject> _stack = new List<StackObject>();
     private int _depth = 0;
@@ -32,9 +34,10 @@ public class ArmGenerator
         return _stack.Last();
     }
 
-    public void PushObject(StackObject stackObject)
+    public void PushObject(StackObject obj)
     {
-        _stack.Add(stackObject);
+        Comment($"Pushing object {obj.Type} to stack");
+        _stack.Add(obj);
     }
     public void PushConstant(StackObject obj, object value)
     {
@@ -76,16 +79,32 @@ public class ArmGenerator
                 Mov(Register.X0, (bool)value ? 1 : 0);
                 Push(Register.X0);
                 break;
+            case StackObject.StackObjectType.Void:
+                break;
         }
         PushObject(obj);
     }
     public StackObject PopObject(string rd)
     {
         var obj = _stack.Last();
-        _stack.RemoveAt(_stack.Count - 1);
-
+        PopObject();
         Pop(rd);
         return obj;
+    }
+
+    public void PopObject()
+    {
+        Console.WriteLine("Cantidad del Stack: " + _stack.Count);
+        Comment($"Popping object from stack");
+        try
+        {
+            _stack.RemoveAt(_stack.Count - 1);
+        }
+        catch (System.Exception err)
+        {
+            Console.WriteLine(err.Message);
+            throw new Exception("No hay objetos en la pila");
+        }
     }
 
     public StackObject IntObject()
@@ -192,6 +211,11 @@ public class ArmGenerator
         _instructions.Add($"ADD {rd}, {rs1}, {rs2}");
     }
 
+    public void Adr(string rd, string label)
+    {
+        _instructions.Add($"ADR {rd}, {label}");
+    }
+
     public void Sub(string rd, string rs1, string rs2)
     {
         _instructions.Add($"SUB {rd}, {rs1}, {rs2}");
@@ -281,6 +305,16 @@ public class ArmGenerator
     public void B(string label)
     {
         _instructions.Add($"B {label}");
+    }
+
+    public void Br(string label)
+    {
+        _instructions.Add($"BR {label}");
+    }
+
+    public void Bl(string label)
+    {
+        _instructions.Add($"BL {label}");
     }
 
     public void Beq(string label)
@@ -376,10 +410,19 @@ public class ArmGenerator
             sb.AppendLine(instruction);
         }
 
+        sb.AppendLine("\n\n\n // Foreign Functions");
+        _funcInstructions.ForEach(i => sb.AppendLine(i));
+
         sb.AppendLine("\n\n\n // Standard Library");
         sb.AppendLine(_stdLib.GetFunctionDefinitions());
 
         return sb.ToString();
+    }
+
+    public StackObject GetFrameLocal(int index)
+    {
+        var obj = _stack.Where(o => o.Type == StackObject.StackObjectType.Undefine).ToList()[index];
+        return obj;
     }
 
 }

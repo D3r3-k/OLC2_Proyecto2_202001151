@@ -1,7 +1,6 @@
-using System.Net.WebSockets;
 using analyzer;
 using Antlr4.Runtime.Misc;
-using server.global;
+
 public class InterpreterVisitor : LanguageBaseVisitor<ValueWrapper>
 {
     // TODO: Atributos

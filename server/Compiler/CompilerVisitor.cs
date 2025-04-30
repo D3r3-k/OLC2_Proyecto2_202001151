@@ -1,18 +1,28 @@
-using System.Net.WebSockets;
 using analyzer;
 using Antlr4.Runtime.Misc;
-using server.global;
+
+
+public class FunctionMetadata
+{
+    public int FrameSize { get; set; }
+    public StackObject.StackObjectType ReturnType;
+}
+
 public class CompilerVisitor : LanguageBaseVisitor<Object?>
 {
     // TODO: Atributos
     public ArmGenerator c = new ArmGenerator();
-    private string? continueLabel = null;
-    private string? breakLabel = null;
-    private string? returnLabel = null;
+    private string continueLabel = "";
+    private string breakLabel = "";
+    private string returnLabel = "";
+    private Dictionary<string, FunctionMetadata> functions = new Dictionary<string, FunctionMetadata>();
+    private string? insideFunction = null;
+    private int framePointerOffset = 0;
 
     // TODO: Contructor
     public CompilerVisitor()
     {
+
     }
 
     // TODO: Métodos
@@ -34,8 +44,22 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     {
         var varName = context.ID().GetText();
         c.Comment("Variable declaration: " + varName);
-
         Visit(context.expr());
+
+        if (insideFunction != null)
+        {
+            var localObj = c.GetFrameLocal(framePointerOffset);
+            var valueObj = c.PopObject(Register.X0); // Pop the value to assign
+
+            c.Mov(Register.X1, framePointerOffset * 8);
+            c.Sub(Register.X1, Register.FP, Register.X1); // Calculate the address of the variable
+            c.Str(Register.X0, Register.X1); // Store the value in the variable
+
+            localObj.Type = valueObj.Type;
+            framePointerOffset++;
+
+            return null;
+        }
 
         c.TagObject(varName);
 
@@ -44,7 +68,103 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitFuncDcl
     public override Object? VisitFuncDcl([NotNull] LanguageParser.FuncDclContext context)
     {
-        
+        int baseOffset = 2;
+        int paramsOffset = 0;
+        if (context.@params() != null)
+        {
+            paramsOffset = context.@params().ID().Length;
+        }
+
+        FrameVisitor frameVisitor = new FrameVisitor(baseOffset + paramsOffset);
+
+        foreach (var dcl in context.dcl())
+        {
+            frameVisitor.Visit(dcl);
+        }
+        var frame = frameVisitor.Frame;
+        int localOffset = frame.Count;
+        int returnOffset = 1;
+
+        int totalFrameSize = baseOffset + paramsOffset + localOffset + returnOffset;
+
+        string funcName = context.ID().GetText();
+        StackObject.StackObjectType funcType = Extras.GetTypeArm(context.type().GetText());
+
+        functions.Add(funcName, new FunctionMetadata
+        {
+            FrameSize = totalFrameSize,
+            ReturnType = funcType
+        });
+
+        var prevInstructions = c._instructions;
+        c._instructions = new List<string>();
+
+        var paramCounter = 0;
+        var paramTypes = context.@params().type();
+        var paramIds = context.@params().ID();
+
+        for (int i = 0; i < paramIds.Length; i++)
+        {
+            var paramId = paramIds[i];
+            var paramType = paramTypes[i];
+
+            Console.WriteLine("Param: " + paramId.GetText() + ", Type: " + paramType.GetText());
+            c.PushObject(new StackObject
+            {
+                Type = Extras.GetTypeArm(paramType.GetText()),
+                Id = paramId.GetText(),
+                Offset = paramCounter + baseOffset,
+                Length = 8
+            });
+            paramCounter++;
+        }
+
+        foreach (var element in frame)
+        {
+            c.PushObject(new StackObject
+            {
+                Type = StackObject.StackObjectType.Undefine,
+                Id = element.Name,
+                Offset = element.Offset,
+                Length = 8
+            });
+        }
+
+        insideFunction = funcName;
+        framePointerOffset = 0;
+
+        returnLabel = c.GetLabel();
+
+        c.Comment("Function Declaration" + funcName);
+        c.SetLabel(funcName);
+
+        foreach (var dcl in context.dcl())
+        {
+            Visit(dcl);
+        }
+        c.SetLabel(returnLabel);
+
+        c.Add(Register.X0, Register.FP, Register.XZR);
+        c.Ldr(Register.LR, Register.X0);
+        c.Br(Register.LR);
+
+        c.Comment("End of Function Declaration" + funcName);
+
+        for (int i = 0; i < paramsOffset + localOffset; i++)
+        {
+            Console.WriteLine("Popped object: " + i);
+            c.PopObject();
+
+        }
+
+        foreach (var instruction in c._instructions)
+        {
+            c._funcInstructions.Add(instruction);
+        }
+        c._instructions = prevInstructions;
+
+        insideFunction = null;
+
         return null;
     }
     // // VisitNodo
@@ -259,6 +379,27 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitReturnStmt
     public override Object? VisitReturnStmt([NotNull] LanguageParser.ReturnStmtContext context)
     {
+        c.Comment("Return Statement");
+        if (context.expr() != null)
+        {
+            c.Br(returnLabel);
+            return null;
+        }
+        if (insideFunction == null) throw new Exception("Return statement outside of function");
+
+        Visit(context.expr());
+        c.PopObject(Register.X0); // Pop the return value
+
+        var frameSize = functions[insideFunction].FrameSize;
+        var returnOffset = frameSize - 1;
+        c.Mov(Register.X1, returnOffset * 8);
+        c.Sub(Register.X1, Register.FP, Register.X1); // Calculate the address of the return value
+        c.Str(Register.X0, Register.X1); // Store the return value in the return address
+        c.B(returnLabel); // Jump to the return label
+
+        c.Comment("End of Return Statement");
+
+
         return null;
     }
     // // VisitSwitchCase
@@ -267,6 +408,80 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitCallee
     public override Object? VisitCallee([NotNull] LanguageParser.CalleeContext context)
     {
+        if (context.expr() is not LanguageParser.IdentifierContext idContext) return null;
+
+        string funcName = idContext.ID().GetText();
+        Console.WriteLine("Function Call: " + funcName);
+        var call = context.call()[0];
+
+        if (call is not LanguageParser.FuncCallContext callContext) return null;
+
+        // TODO: Funcion embedida
+        var postFuncCallLabel = c.GetLabel();
+
+        // 1. | RA | FP |
+        int baseOffset = 2;
+        int stackElementSize = 8;
+
+        c.Mov(Register.X0, baseOffset * stackElementSize);
+        c.Sub(Register.SP, Register.SP, Register.X0); // Allocate space for the function call
+
+        // 2. | RA | FP | ...params |
+        if (callContext.args() != null)
+        {
+            c.Comment("Visiting function parameters");
+            foreach (var param in callContext.args().expr())
+            {
+                Visit(param);
+            }
+        }
+
+        // 3. Calcular el valor del FP
+        // Regresar el SP al inicio del Frame
+        c.Mov(Register.X0, stackElementSize * (baseOffset + callContext.args().expr().Length));
+        c.Add(Register.SP, Register.SP, Register.X0); // Remove the bytes from the stack
+
+        // Calcular la posicion donde se va a guardar el FP
+        c.Mov(Register.X0, stackElementSize);
+        c.Sub(Register.X0, Register.SP, Register.X0); // Allocate space for the function call
+
+        c.Adr(Register.X1, postFuncCallLabel); // Set the return address
+        c.Push(Register.X1); // Push the return address
+
+        c.Push(Register.FP);
+        c.Add(Register.FP, Register.X0, Register.XZR);
+
+        int frameSize = functions[funcName].FrameSize;
+        c.Mov(Register.X0, (frameSize - 2) * stackElementSize);
+        c.Sub(Register.SP, Register.SP, Register.X0); // Allocate space for the function call
+
+        c.Comment("Function Call: " + funcName);
+        c.Bl(funcName); // Call the function
+        c.Comment("End of Function Call: " + funcName);
+        c.SetLabel(postFuncCallLabel); // Set the post function call label
+
+        var returnOffset = frameSize - 1;
+        c.Mov(Register.X4, returnOffset * stackElementSize);
+        c.Sub(Register.X4, Register.FP, Register.X4); // Calculate the address of the return value
+        c.Ldr(Register.X4, Register.X4); // Load the return value
+
+        c.Mov(Register.X1, stackElementSize);
+        c.Sub(Register.X1, Register.FP, Register.X1); // Calculate the address of the return value
+        c.Ldr(Register.FP, Register.X1); // Load the return value
+
+        c.Mov(Register.X0, stackElementSize * frameSize);
+        c.Add(Register.SP, Register.SP, Register.X0); // Remove the bytes from the stack
+
+        c.Push(Register.X4); // Push the return value
+        c.PushObject(new StackObject
+        {
+            Type = functions[funcName].ReturnType,
+            Id = null,
+            Offset = 0,
+            Length = 8
+        });
+        c.Comment("End of Function Call: " + funcName);
+
         return null;
     }
     // VisitSlices
@@ -486,6 +701,18 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
         var (offset, obj) = c.GetObject(id);
 
+        if (insideFunction != null)
+        {
+            c.Mov(Register.X0, obj.Offset * 8);
+            c.Sub(Register.X0, Register.FP, Register.X0); // Calculate the address of the variable
+            c.Ldr(Register.X0, Register.X0); // Load the address of the variable
+            c.Push(Register.X0); // Push the address of the variable
+            var CloneObject = c.CloneObject(obj);
+            CloneObject.Id = null;
+            c.PushObject(CloneObject);
+            return null;
+        }
+
         c.Mov(Register.X0, offset);
         c.Add(Register.X0, Register.SP, Register.X0);
 
@@ -511,6 +738,14 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             var valueObject = c.PopObject(Register.X0); // Pop the value to assign
 
             var (offset, varObj) = c.GetObject(id);
+
+            if (insideFunction != null)
+            {
+                c.Mov(Register.X1, varObj.Offset * 8);
+                c.Sub(Register.X1, Register.FP, Register.X1); // Calculate the address of the variable
+                c.Str(Register.X0, Register.X1); // Store the value in the variable
+                return null;
+            }
 
             c.Mov(Register.X1, offset);
             c.Add(Register.X1, Register.SP, Register.X1); // Calculate the address of the variable
@@ -542,7 +777,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         c.Comment("Boolean Constante: " + value);
         var boolObject = c.BoolObject();
         c.PushConstant(boolObject, value == "true" ? true : false);
-        
+
         return null;
     }
     // VisitRune

@@ -10,16 +10,23 @@ public class StandardLibrary
         if (function == "print_integer")
         {
             UsedSymbols.Add("minus_sign");
+            UsedSymbols.Add("newline");
         }
         else if (function == "print_double")
         {
             UsedSymbols.Add("dot_char");
             UsedSymbols.Add("zero_char");
+            UsedSymbols.Add("newline");
         }
         else if (function == "print_bool")
         {
             UsedSymbols.Add("true_str");
             UsedSymbols.Add("false_str");
+            UsedSymbols.Add("newline");
+        }
+        else if (function == "print_string")
+        {
+            UsedSymbols.Add("newline");
         }
 
     }
@@ -142,6 +149,13 @@ print_result:
     mov w8, #64                // Syscall write
     svc #0
     
+    // Print newline character
+    mov x0, #1                 // fd = 1 (stdout)
+    adr x1, newline            // Address of newline character
+    mov x2, #1                 // Length = 1
+    mov w8, #64                // Syscall write
+    svc #0
+
     // Clean up and restore registers
     add sp, sp, #32            // Free buffer space
     ldp x27, x28, [sp], #16    // Restore callee-saved registers
@@ -188,6 +202,13 @@ print_loop:
     
     // Continue the loop
     b       print_loop
+    
+    // Print newline character
+    mov x0, #1                 // fd = 1 (stdout)
+    adr x1, newline            // Address of newline character
+    mov x2, #1                 // Length = 1
+    mov w8, #64                // Syscall write
+    svc #0
     
 print_done:
     // Restore saved registers
@@ -288,7 +309,15 @@ print_remaining:
     // Caso especial cuando la parte fraccionaria es 0 después de imprimir ceros
     cmp x20, #0
     bne exit_function
-    
+
+    // Print newline character
+    mov x0, #1                 // fd = 1 (stdout)
+    adr x1, newline            // Address of newline character
+    mov x2, #1                 // Length = 1
+    mov w8, #64                // Syscall write
+    svc #0
+
+
     // Ya imprimimos todos los ceros necesarios
     // No hace falta imprimir nada más
 
@@ -331,11 +360,20 @@ exit_function:
         mov x0, #1                  // File descriptor: stdout
         mov x8, #64                 // Syscall: write
         svc #0
-        
+
+    // Print newline character
+    mov x0, #1                 // fd = 1 (stdout)
+    adr x1, newline            // Address of newline character
+    mov x2, #1                 // Length = 1
+    mov w8, #64                // Syscall write
+    svc #0
+
         // Restore registers and return
         ldp x29, x30, [sp], #16
         ret
-        "}
+        "},
+
+
 };
 
     private readonly static Dictionary<string, string> Symbols = new Dictionary<string, string>
@@ -344,7 +382,8 @@ exit_function:
         { "dot_char", @"dot_char: .ascii "".""" },
         { "zero_char", @"zero_char: .ascii ""0""" },
         {"true_str", @"true_str: .ascii ""true""" },
-        { "false_str", @"false_str: .ascii ""false""" }
+        { "false_str", @"false_str: .ascii ""false""" },
+        { "newline", @"newline: .ascii ""\n""" },
     };
 
 }
