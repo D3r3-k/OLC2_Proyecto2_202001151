@@ -23,6 +23,20 @@ public class Extras
         };
     }
 
+    public static object GetDefaultValueArm(string type)
+    {
+        return type switch
+        {
+            "int" => 0,
+            "float64" => 0.0,
+            "bool" => false,
+            "string" => "",
+            "rune" => '\0',
+            _ => 0
+        };
+    }
+
+
     public static ValueWrapper GetDefaultValue(string type)
     {
         return type.ToLower() switch
@@ -46,6 +60,20 @@ public class Extras
                 )
             ),
             _ => new VoidValue(),
+        };
+    }
+
+    public static string GetValueTypeArm(object value)
+    {
+        return value switch
+        {
+            int _ => "int",
+            double _ => "float64",
+            string _ => "string",
+            bool _ => "bool",
+            char _ => "rune",
+            null => "nil",
+            _ => "void",
         };
     }
 

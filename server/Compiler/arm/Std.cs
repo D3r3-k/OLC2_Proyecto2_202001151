@@ -10,23 +10,24 @@ public class StandardLibrary
         if (function == "print_integer")
         {
             UsedSymbols.Add("minus_sign");
-            UsedSymbols.Add("newline");
         }
         else if (function == "print_double")
         {
             UsedSymbols.Add("dot_char");
             UsedSymbols.Add("zero_char");
-            UsedSymbols.Add("newline");
         }
         else if (function == "print_bool")
         {
             UsedSymbols.Add("true_str");
             UsedSymbols.Add("false_str");
-            UsedSymbols.Add("newline");
         }
-        else if (function == "print_string")
+        else if (function == "string_compare")
         {
-            UsedSymbols.Add("newline");
+            UsedSymbols.Add("string_compare");
+        }
+        else if (function == "print_rune")
+        {
+            UsedSymbols.Add("rune_char");
         }
 
     }
@@ -148,13 +149,6 @@ print_result:
     mov x2, x23                // Buffer length
     mov w8, #64                // Syscall write
     svc #0
-    
-    // Print newline character
-    mov x0, #1                 // fd = 1 (stdout)
-    adr x1, newline            // Address of newline character
-    mov x2, #1                 // Length = 1
-    mov w8, #64                // Syscall write
-    svc #0
 
     // Clean up and restore registers
     add sp, sp, #32            // Free buffer space
@@ -167,7 +161,6 @@ print_result:
     ret                        // Return to caller
     "
     },
-
     { "print_string", @"
 //--------------------------------------------------------------
 // print_string - Prints a null-terminated string to stdout
@@ -203,21 +196,14 @@ print_loop:
     // Continue the loop
     b       print_loop
     
-    // Print newline character
-    mov x0, #1                 // fd = 1 (stdout)
-    adr x1, newline            // Address of newline character
-    mov x2, #1                 // Length = 1
-    mov w8, #64                // Syscall write
-    svc #0
     
 print_done:
     // Restore saved registers
     ldp     x19, x20, [sp], #16
     ldp     x29, x30, [sp], #16
-    ret
-    // Return to the caller
-    "},
-
+    ret     // Return to the caller
+    "
+    },
     { "print_double", @"
 //--------------------------------------------------------------
 // print_double - Prints a double precision float to stdout
@@ -310,12 +296,6 @@ print_remaining:
     cmp x20, #0
     bne exit_function
 
-    // Print newline character
-    mov x0, #1                 // fd = 1 (stdout)
-    adr x1, newline            // Address of newline character
-    mov x2, #1                 // Length = 1
-    mov w8, #64                // Syscall write
-    svc #0
 
 
     // Ya imprimimos todos los ceros necesarios
@@ -328,10 +308,9 @@ exit_function:
     ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16
     ret
-    "},
-
-    {
-        "print_bool", @"
+    "
+    },
+    { "print_bool", @"
     //--------------------------------------------------------------
     // print_bool - Prints a boolean value to stdout
     //
@@ -361,17 +340,71 @@ exit_function:
         mov x8, #64                 // Syscall: write
         svc #0
 
-    // Print newline character
-    mov x0, #1                 // fd = 1 (stdout)
-    adr x1, newline            // Address of newline character
-    mov x2, #1                 // Length = 1
-    mov w8, #64                // Syscall write
-    svc #0
-
         // Restore registers and return
         ldp x29, x30, [sp], #16
         ret
-        "},
+        "
+    },
+    { "string_compare", @"
+    string_compare:
+        // X0 = str1, X1 = str2
+        stp x29, x30, [sp, #-16]!
+        stp x19, x20, [sp, #-16]!
+        mov x19, x0
+        mov x20, x1
+
+    compare_loop:
+        ldrb w0, [x19], #1
+        ldrb w1, [x20], #1
+        cmp w0, w1
+        b.ne not_equal
+        cbnz w0, compare_loop
+        
+        // Strings are equal
+        mov x0, 0
+        b compare_end
+        
+    not_equal:
+        mov x0, 1
+        
+    compare_end:
+        ldp x19, x20, [sp], #16
+        ldp x29, x30, [sp], #16
+        ret
+    "
+    },
+    { "print_rune", @"
+print_rune:
+    // Input: X0 = address of rune
+    stp x29, x30, [sp, #-16]!
+    stp x19, x20, [sp, #-16]!
+    
+    mov x19, x0          // Guardar dirección del rune
+    
+    // Verificar si es carácter imprimible
+    ldrb w20, [x19]
+    cmp w20, #32
+    b.lt print_rune_end
+    cmp w20, #126
+    b.gt print_rune_end
+    
+    // Print the rune
+    mov x0, #1          // stdout
+    mov x1, x19         // Address
+    mov x2, #1          // Length
+    mov x8, #64         // syscall: write
+    svc #0
+    
+    // Print newline (opcional)
+    // adr x1, newline
+    // mov x2, #1
+    // svc #0
+    
+    print_rune_end:
+        ldp x19, x20, [sp], #16
+        ldp x29, x30, [sp], #16
+        ret
+    "},
 
 
 };
@@ -383,7 +416,10 @@ exit_function:
         { "zero_char", @"zero_char: .ascii ""0""" },
         {"true_str", @"true_str: .ascii ""true""" },
         { "false_str", @"false_str: .ascii ""false""" },
-        { "newline", @"newline: .ascii ""\n""" },
+        { "true_str_len", @".equ true_str_len, . - true_str" },
+        { "false_str_len", @".equ false_str_len, . - false_str" },
+        { "string_compare", @"string_compare: .ascii ""string_compare""" },
+        { "rune_char", @"rune_char: .ascii ""r""" },
     };
 
 }

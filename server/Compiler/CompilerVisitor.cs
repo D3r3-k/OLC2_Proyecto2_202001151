@@ -43,8 +43,24 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     public override Object? VisitVarDcl([NotNull] LanguageParser.VarDclContext context)
     {
         var varName = context.ID().GetText();
+        var type = context.type() != null;
+        var value = context.expr() != null;
+        // var numero int = 0;
+        // numero := 0;
+        if (value)
+        {
+            Visit(context.expr());
+        }
+        // var numero int;
+        else
+        {
+            var typeValue = context.type().GetText();
+            StackObject obj = c.GetDefaultValueArm(typeValue);
+            var defaultValue = Extras.GetDefaultValueArm(typeValue);
+            c.PushConstant(obj, defaultValue);
+        }
+
         c.Comment("Variable declaration: " + varName);
-        Visit(context.expr());
 
         if (insideFunction != null)
         {
@@ -81,10 +97,10 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         {
             frameVisitor.Visit(dcl);
         }
+
         var frame = frameVisitor.Frame;
         int localOffset = frame.Count;
         int returnOffset = 1;
-
         int totalFrameSize = baseOffset + paramsOffset + localOffset + returnOffset;
 
         string funcName = context.ID().GetText();
@@ -99,6 +115,10 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         var prevInstructions = c._instructions;
         c._instructions = new List<string>();
 
+        // 4. Prologo de la función
+        c.Comment($"Function Declaration: {funcName}");
+        c.SetLabel(funcName);
+
         var paramCounter = 0;
         var paramTypes = context.@params().type();
         var paramIds = context.@params().ID();
@@ -108,7 +128,6 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             var paramId = paramIds[i];
             var paramType = paramTypes[i];
 
-            Console.WriteLine("Param: " + paramId.GetText() + ", Type: " + paramType.GetText());
             c.PushObject(new StackObject
             {
                 Type = Extras.GetTypeArm(paramType.GetText()),
@@ -118,6 +137,8 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             });
             paramCounter++;
         }
+
+
 
         foreach (var element in frame)
         {
@@ -130,6 +151,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             });
         }
 
+
         insideFunction = funcName;
         framePointerOffset = 0;
 
@@ -140,8 +162,11 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
         foreach (var dcl in context.dcl())
         {
+            // ! Aqui truena :(
             Visit(dcl);
         }
+
+
         c.SetLabel(returnLabel);
 
         c.Add(Register.X0, Register.FP, Register.XZR);
@@ -152,10 +177,9 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
         for (int i = 0; i < paramsOffset + localOffset; i++)
         {
-            Console.WriteLine("Popped object: " + i);
             c.PopObject();
-
         }
+
 
         foreach (var instruction in c._instructions)
         {
@@ -171,11 +195,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // // VisitParams
     // // VisitClassDcl
     // // VisitClassBody
-    // VisitStructDcl
-    public override Object? VisitStructDcl([NotNull] LanguageParser.StructDclContext context)
-    {
-        return null;
-    }
+    // // VisitStructDcl
     // VisitPrintStmt
     public override Object? VisitPrintStmt([NotNull] LanguageParser.PrintStmtContext context)
     {
@@ -203,6 +223,14 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             else if (value.Type == StackObject.StackObjectType.String)
             {
                 c.PrintString(Register.X0);
+            }
+            else if (value.Type == StackObject.StackObjectType.Rune)
+            {
+                c.PrintRune(Register.X0);
+            }
+            else if (value.Type == StackObject.StackObjectType.Nil)
+            {
+                c.PrintNil();
             }
         }
 
@@ -380,25 +408,26 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     public override Object? VisitReturnStmt([NotNull] LanguageParser.ReturnStmtContext context)
     {
         c.Comment("Return Statement");
-        if (context.expr() != null)
-        {
-            c.Br(returnLabel);
-            return null;
-        }
         if (insideFunction == null) throw new Exception("Return statement outside of function");
 
-        Visit(context.expr());
-        c.PopObject(Register.X0); // Pop the return value
+        if (context.expr() != null)
+        {
+            Visit(context.expr());
+            c.PopObject(Register.X0); // Pop the return value
 
-        var frameSize = functions[insideFunction].FrameSize;
-        var returnOffset = frameSize - 1;
-        c.Mov(Register.X1, returnOffset * 8);
-        c.Sub(Register.X1, Register.FP, Register.X1); // Calculate the address of the return value
-        c.Str(Register.X0, Register.X1); // Store the return value in the return address
-        c.B(returnLabel); // Jump to the return label
+            var frameSize = functions[insideFunction].FrameSize;
+            var returnOffset = frameSize - 1;
+            c.Mov(Register.X1, returnOffset * 8);
+            c.Sub(Register.X1, Register.FP, Register.X1); // Calculate return address
+            c.Str(Register.X0, Register.X1); // Store return value
 
-        c.Comment("End of Return Statement");
-
+            c.B(returnLabel);
+        }
+        else
+        {
+            // Return void
+            c.B(returnLabel);
+        }
 
         return null;
     }
@@ -411,7 +440,6 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         if (context.expr() is not LanguageParser.IdentifierContext idContext) return null;
 
         string funcName = idContext.ID().GetText();
-        Console.WriteLine("Function Call: " + funcName);
         var call = context.call()[0];
 
         if (call is not LanguageParser.FuncCallContext callContext) return null;
@@ -587,11 +615,20 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         var operation = context.op.Text;
         Visit(context.expr(0)); // Visit left operand
         Visit(context.expr(1)); // Visit right operand
+
         c.Comment("Pop operands");
         var isRightDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
         var right = c.PopObject(isRightDouble ? Register.D0 : Register.X1); // Pop 2 -> [1]
         var isLeftDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
         var left = c.PopObject(isLeftDouble ? Register.D1 : Register.X1); // Pop 1 -> []
+
+
+        Console.WriteLine("|------------------");
+        Console.WriteLine("| Relational: " + operation);
+        Console.WriteLine("|------------------");
+        Console.WriteLine("| Left: " + left.Id);
+        Console.WriteLine("| Right: " + right.Id);
+        Console.WriteLine("|------------------");
         if (isLeftDouble || isRightDouble)
         {
             return null;
@@ -668,14 +705,13 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
         return null;
     }
-    // VisitStruct
-    public override Object? VisitStruct([NotNull] LanguageParser.StructContext context)
-    {
-        return null;
-    }
+
     // VisitNil
     public override Object? VisitNil([NotNull] LanguageParser.NilContext context)
     {
+        c.Comment("Nil Constante");
+        var nilObject = c.NilObject();
+        c.PushConstant(nilObject, null); // Push the nil value to the stack
         return null;
     }
     // VisitFloat
@@ -692,6 +728,24 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitNot
     public override Object? VisitNot([NotNull] LanguageParser.NotContext context)
     {
+        c.Comment("Logical NOT operation");
+        Visit(context.expr()); // Visit the operand to negate
+
+        // Pop the boolean value (always treated as integer in ARM)
+        var operand = c.PopObject(Register.X0);
+
+        if (operand.Type != StackObject.StackObjectType.Bool)
+        {
+            throw new SemanticError("Operand of '!' must be boolean", context.Start);
+        }
+
+        // ARM64 logical NOT implementation:
+        c.Cmp(Register.X0, "0");          // Compare with 0 (false)
+        c.Cset(Register.X0, Register.EQ);  // Set to 1 if equal (was 0), else 0
+
+        c.Push(Register.X0);
+        c.PushObject(c.BoolObject());  // Push boolean result
+
         return null;
     }
     // VisitIdentifier
@@ -763,6 +817,29 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitNegate
     public override Object? VisitNegate([NotNull] LanguageParser.NegateContext context)
     {
+        c.Comment("Negate operation");
+        Visit(context.expr()); // Visit the operand to negate
+
+        // Determine if the operand is float or integer
+        var isDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
+        var operand = c.PopObject(isDouble ? Register.D0 : Register.X0);
+
+        if (isDouble)
+        {
+            // Floating-point negation
+            c.Fneg(Register.D0, Register.D0); // D0 = -D0
+            c.Push(Register.D0);
+        }
+        else
+        {
+            // Integer negation
+            c.Neg(Register.X0, Register.X0); // X0 = -X0
+            c.Push(Register.X0);
+        }
+
+        // Push the same type back to the stack
+        c.PushObject(operand);
+
         return null;
     }
     // VisitEquality
@@ -783,6 +860,10 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitRune
     public override Object? VisitRune([NotNull] LanguageParser.RuneContext context)
     {
+        var value = context.RUNE().GetText().Trim('\'');
+        c.Comment("Rune Constante: " + value);
+        var runeObject = c.RuneObject();
+        c.PushConstant(runeObject, value[0]); // Push the rune value to the stack
         return null;
     }
     // VisitAndOr
@@ -790,6 +871,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     {
         return null;
     }
+
     // VisitAssignOp
     public override Object? VisitAssignOp([NotNull] LanguageParser.AssignOpContext context)
     {
@@ -799,4 +881,5 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // // VisitGet
     // // VisitArrayAccess
     // // VisitArgs
+    // // VisitStruct
 }

@@ -78,5 +78,14 @@ public static class Register
     public static string D31 => "d31";
     public static string W0 => "w0";
 
+    // Condiciones floats
+    public static string EQ => "eq";
+    public static string NE => "ne";
+    public static string LT => "lt";
+    public static string GT => "gt";
+    public static string LE => "le";
+    public static string GE => "ge";
+    
+
 
 }

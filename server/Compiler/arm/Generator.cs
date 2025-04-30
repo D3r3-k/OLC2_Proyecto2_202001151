@@ -19,14 +19,6 @@ public class ArmGenerator
     private List<StackObject> _stack = new List<StackObject>();
     private int _depth = 0;
     private int labelCounter = 0;
-    public string GetLabel()
-    {
-        return $"L{labelCounter++}";
-    }
-    public void SetLabel(string label)
-    {
-        _instructions.Add($"{label}:");
-    }
     // TODO: STACK OPERATIONS
 
     public StackObject TopObject()
@@ -36,9 +28,25 @@ public class ArmGenerator
 
     public void PushObject(StackObject obj)
     {
-        Comment($"Pushing object {obj.Type} to stack");
+        //Console.WriteLine($"Pushing object: Type={obj.Type}, Id={obj.Id}, Depth={obj.Depth}");
         _stack.Add(obj);
     }
+
+    public void PopObject()
+    {
+        if (_stack.Count == 0)
+        {
+            Console.WriteLine("Stack trace:");
+            foreach (var item in _stack)
+            {
+                Console.WriteLine($"- Type={item.Type}, Id={item.Id}, Depth={item.Depth}");
+            }
+            throw new Exception("No hay objetos en la pila");
+        }
+        //Console.WriteLine($"Popping object: Type={_stack.Last().Type}, Id={_stack.Last().Id}, Depth={_stack.Last().Depth}");
+        _stack.RemoveAt(_stack.Count - 1);
+    }
+
     public void PushConstant(StackObject obj, object value)
     {
         switch (obj.Type)
@@ -48,17 +56,24 @@ public class ArmGenerator
                 Push(Register.X0);
                 break;
             case StackObject.StackObjectType.Float:
-                long floatBits = BitConverter.DoubleToInt64Bits((double)value);
-                short[] floatArray = new short[4];
-                for (int i = 0; i < 4; i++)
+                double doubleValue = (double)value;
+                Comment($"Float constant: {doubleValue}");
+
+                // Convertir el double a bits
+                long floatBits = BitConverter.DoubleToInt64Bits(doubleValue);
+
+                // Cargar el valor en partes de 16 bits
+                for (int shift = 0; shift < 64; shift += 16)
                 {
-                    floatArray[i] = (short)((floatBits >> (i * 16)) & 0xFFFF);
+                    ushort part = (ushort)((floatBits >> shift) & 0xFFFF);
+                    if (part != 0)
+                    {
+                        _instructions.Add(shift == 0
+                            ? $"MOVZ X0, #{part}, LSL #{shift}"
+                            : $"MOVK X0, #{part}, LSL #{shift}");
+                    }
                 }
-                _instructions.Add($"MOVZ X0, #{floatArray[0]}, LSL #0");
-                for (int i = 1; i < 4; i++)
-                {
-                    _instructions.Add($"MOVK X0, #{floatArray[i]}, LSL #{i * 16}");
-                }
+
                 Push(Register.X0);
                 break;
             case StackObject.StackObjectType.String:
@@ -74,6 +89,26 @@ public class ArmGenerator
                     Add(Register.HP, Register.HP, Register.X0);
                 }
 
+                break;
+            case StackObject.StackObjectType.Rune:
+                char runeValue = (char)Convert.ToInt32(value);
+                Comment($"Pushing rune {(int)runeValue} - {runeValue}");
+
+                // Almacenar el rune en el heap (1 byte para ASCII)
+                Push(Register.HP);  // Guardamos la dirección donde colocaremos el rune
+
+                // Almacenar el valor del rune
+                Mov(Register.W0, (byte)runeValue);
+                Strb(Register.W0, Register.HP);
+
+                // Incrementar HP
+                Mov(Register.X0, 1);
+                Add(Register.HP, Register.HP, Register.X0);
+
+                // Null terminator (opcional para runes)
+                Mov(Register.W0, 0);
+                Strb(Register.W0, Register.HP);
+                Add(Register.HP, Register.HP, Register.X0); // Incrementar HP otra vez
                 break;
             case StackObject.StackObjectType.Bool:
                 Mov(Register.X0, (bool)value ? 1 : 0);
@@ -92,20 +127,18 @@ public class ArmGenerator
         return obj;
     }
 
-    public void PopObject()
-    {
-        Console.WriteLine("Cantidad del Stack: " + _stack.Count);
-        Comment($"Popping object from stack");
-        try
-        {
-            _stack.RemoveAt(_stack.Count - 1);
-        }
-        catch (System.Exception err)
-        {
-            Console.WriteLine(err.Message);
-            throw new Exception("No hay objetos en la pila");
-        }
-    }
+    // public void PopObject()
+    // {
+    //     Comment($"Popping object from stack");
+    //     try
+    //     {
+    //         _stack.RemoveAt(_stack.Count - 1);
+    //     }
+    //     catch (System.Exception err)
+    //     {
+    //         throw new Exception("No hay objetos en la pila");
+    //     }
+    // }
 
     public StackObject IntObject()
     {
@@ -122,6 +155,36 @@ public class ArmGenerator
         return new StackObject
         {
             Type = StackObject.StackObjectType.Bool,
+            Length = 8,
+            Depth = _depth,
+            Id = null
+        };
+    }
+    public StackObject VoidObject()
+    {
+        return new StackObject
+        {
+            Type = StackObject.StackObjectType.Void,
+            Length = 8,
+            Depth = _depth,
+            Id = null
+        };
+    }
+    public StackObject NilObject()
+    {
+        return new StackObject
+        {
+            Type = StackObject.StackObjectType.Nil,
+            Length = 8,
+            Depth = _depth,
+            Id = null
+        };
+    }
+    public StackObject RuneObject()
+    {
+        return new StackObject
+        {
+            Type = StackObject.StackObjectType.Rune,
             Length = 8,
             Depth = _depth,
             Id = null
@@ -267,6 +330,18 @@ public class ArmGenerator
     }
 
     /* Float Operations */
+    public void Fneg(string rd, string rs)
+    {
+        _instructions.Add($"FNEG {rd}, {rs}");
+    }
+    public void Neg(string rd, string rs)
+    {
+        _instructions.Add($"NEG {rd}, {rs}");
+    }
+    public void Mvn(string rd, string rs)
+    {
+        _instructions.Add($"MVN {rd}, {rs}");
+    }
     public void Scvtf(string rd, string rs)
     {
         _instructions.Add($"SCVTF {rd}, {rs}");
@@ -293,23 +368,21 @@ public class ArmGenerator
         _instructions.Add($"FDIV {rd}, {rs1}, {rs2}");
     }
 
-    public void Cmp(string rs1, string rs2)
+    public void Fcsel(string rd, string rs1, string rs2, string cond)
     {
-        _instructions.Add($"CMP {rs1}, {rs2}");
+        _instructions.Add($"FCSEL {rd}, {rs1}, {rs2}, {cond}");
     }
-    public void Cbz(string rs, string label)
-    {
-        _instructions.Add($"CBZ {rs}, {label}");
-    }
+
+    // Branch operations
 
     public void B(string label)
     {
         _instructions.Add($"B {label}");
     }
 
-    public void Br(string label)
+    public void Br(string rs)
     {
-        _instructions.Add($"BR {label}");
+        _instructions.Add($"BR {rs}");
     }
 
     public void Bl(string label)
@@ -317,33 +390,81 @@ public class ArmGenerator
         _instructions.Add($"BL {label}");
     }
 
+    public void Cbz(string rs, string label)
+    {
+        _instructions.Add($"CBZ {rs}, {label}");
+    }
+
+    public void Cbnz(string rs, string label)
+    {
+        _instructions.Add($"CBNZ {rs}, {label}");
+    }
+
+    public void Cmp(string rs1, string rs2)
+    {
+        _instructions.Add($"CMP {rs1}, {rs2}");
+    }
+    public void Cmp(string rs1, int imm)
+    {
+        _instructions.Add($"CMP {rs1}, #{imm}");
+    }
+
+    // Add to ArmGenerator.cs
+    public void Fcmp(string rn, string rm) => _instructions.Add($"FCMP {rn}, {rm}");
+    public void Cset(string rd, string cond) => _instructions.Add($"CSET {rd}, {cond}");
+    public void And(string rd, string rn, long imm) => _instructions.Add($"AND {rd}, {rn}, #{imm}");
+
+
+
     public void Beq(string label)
     {
         _instructions.Add($"BEQ {label}");
     }
+
     public void Bne(string label)
     {
         _instructions.Add($"BNE {label}");
     }
+
     public void Bgt(string label)
     {
         _instructions.Add($"BGT {label}");
     }
+
     public void Blt(string label)
     {
         _instructions.Add($"BLT {label}");
     }
+
     public void Bge(string label)
     {
         _instructions.Add($"BGE {label}");
     }
+
     public void Ble(string label)
     {
         _instructions.Add($"BLE {label}");
     }
+
     public void Ret()
     {
         _instructions.Add($"RET");
+    }
+
+    public String GetLabel()
+    {
+        return $"L{labelCounter++}";
+    }
+
+    public void SetLabel(string label)
+    {
+        _instructions.Add($"{label}:");
+    }
+
+
+    public void Ret(string rs)
+    {
+        _instructions.Add($"RET {rs}");
     }
 
     //
@@ -387,6 +508,17 @@ public class ArmGenerator
         _instructions.Add($"MOV X0, {rs}");
         _instructions.Add($"BL print_bool");
     }
+    public void PrintNil()
+    {
+        _stdLib.Use("print_nil");
+        _instructions.Add($"BL print_nil");
+    }
+    public void PrintRune(string rs)
+    {
+        _stdLib.Use("print_rune");
+        _instructions.Add($"MOV X0, {rs}");
+        _instructions.Add($"BL print_rune");
+    }
 
 
     public void Comment(string comment)
@@ -419,10 +551,50 @@ public class ArmGenerator
         return sb.ToString();
     }
 
+    public void commentStack()
+    {
+        Console.WriteLine("Stack:");
+        string stackString = "Stack: ";
+        foreach (var obj in _stack)
+        {
+            stackString += $"[{obj.Type}, {obj.Length}, {obj.Depth}, {obj.Id}] ";
+            Console.WriteLine($"Type: {obj.Type}, Length: {obj.Length}, Depth: {obj.Depth}, Id: {obj.Id}");
+        }
+        Comment(stackString);
+    }
+
+
     public StackObject GetFrameLocal(int index)
     {
         var obj = _stack.Where(o => o.Type == StackObject.StackObjectType.Undefine).ToList()[index];
         return obj;
     }
 
+    public StackObject GetDefaultValueArm(string type)
+    {
+        return type switch
+        {
+            "int" => IntObject(),
+            "float64" => FloatObject(),
+            "string" => StringObject(),
+            "bool" => BoolObject(),
+            "rune" => RuneObject(),
+            "nil" => NilObject(),
+            _ when type.Contains("[][]") => new StackObject
+            {
+                Type = StackObject.StackObjectType.Slice,
+                Length = 8,
+                Depth = _depth,
+                Id = null
+            },
+            _ when type.Contains("[]") => new StackObject
+            {
+                Type = StackObject.StackObjectType.Slice,
+                Length = 8,
+                Depth = _depth,
+                Id = null
+            },
+            _ => throw new Exception($"Tipo no soportado: {type}"),
+        };
+    }
 }
