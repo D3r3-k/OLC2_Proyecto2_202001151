@@ -936,6 +936,9 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         }
         else if (left.Type == StackObject.StackObjectType.Int || left.Type == StackObject.StackObjectType.Rune)
         {
+            Console.WriteLine("Comparando enteros o runes");
+            Console.WriteLine($"Left: {left.Type}");
+            Console.WriteLine($"Right: {right.Type}");
             // Comparación de enteros o runes
             c.Cmp(Register.X0, Register.X1);
             c.Cset(Register.X0, condition);
@@ -947,8 +950,15 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             c.Push(Register.X0); // Push dirección izquierda
             c.Push(Register.X1); // Push dirección derecha
             c.Bl("string_compare");
+            c.Add(Register.SP, Register.SP, 16); // Añadir esta línea para limpiar los argumentos
             c.Cmp(Register.X0, 0); // Comparar resultado con 0
             c.Cset(Register.X0, condition); // X0 = 1 si condición se cumple
+        }
+        else if (left.Type == StackObject.StackObjectType.Bool && right.Type == StackObject.StackObjectType.Bool)
+        {
+            // Comparación de booleanos
+            c.Cmp(Register.X0, Register.X1);
+            c.Cset(Register.X0, condition);
         }
         else
         {
