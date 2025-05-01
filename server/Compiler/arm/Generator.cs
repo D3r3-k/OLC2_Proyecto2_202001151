@@ -1,4 +1,5 @@
 
+using System.Net.NetworkInformation;
 using System.Text;
 
 public class StackObject
@@ -303,6 +304,18 @@ public class ArmGenerator
     {
         _instructions.Add($"SDIV {rd}, {rs1}, {rs2}");
     }
+    public void Mod(string rd, string rs1, string rs2)
+    {
+        _instructions.Add($"MOD {rd}, {rs1}, {rs2}");
+    }
+    public void FMod(string rd, string rs1, string rs2)
+    {
+        _instructions.Add($"FMOD {rd}, {rs1}, {rs2}");
+    }
+    public void Rem(string rd, string rs1, string rs2)
+    {
+        _instructions.Add($"REM {rd}, {rs1}, {rs2}");
+    }
 
     public void Addi(string rd, string rs1, int imm)
     {
@@ -377,6 +390,10 @@ public class ArmGenerator
     public void Fsub(string rd, string rs1, string rs2)
     {
         _instructions.Add($"FSUB {rd}, {rs1}, {rs2}");
+    }
+    public void Fabs(string rd, string rs)
+    {
+        _instructions.Add($"FABS {rd}, {rs}");
     }
     public void Fmul(string rd, string rs1, string rs2)
     {

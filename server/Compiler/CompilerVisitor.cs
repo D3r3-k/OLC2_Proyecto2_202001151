@@ -545,13 +545,16 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             if (!isLeftDouble) c.Scvtf(Register.D1, Register.X0); // Convert left to double
             if (!isRightDouble) c.Scvtf(Register.D0, Register.X1); // Convert right to double
 
-            if (operation == "*")
+            switch (operation)
             {
-                c.Fmul(Register.D0, Register.D0, Register.D1); // D0 = left * right
-            }
-            else // "/"
-            {
-                c.Fdiv(Register.D0, Register.D1, Register.D0); // D0 = left / right
+                case "*":
+                    c.Fmul(Register.D0, Register.D0, Register.D1);
+                    break;
+                case "/":
+                    c.Fdiv(Register.D0, Register.D1, Register.D0);
+                    break;
+                default:
+                    throw new Exception($"Unsupported operation: {operation}");
             }
 
             c.Push(Register.D0); // Push result -> [result]
@@ -560,13 +563,21 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         else
         {
             // Operación con enteros
-            if (operation == "*")
+            switch (operation)
             {
-                c.Mul(Register.X0, Register.X0, Register.X1); // X0 = left * right
-            }
-            else // "/"
-            {
-                c.Sdiv(Register.X0, Register.X0, Register.X1); // X0 = left / right
+                case "*":
+                    c.Mul(Register.X0, Register.X0, Register.X1);
+                    break;
+                case "/":
+                    c.Sdiv(Register.X0, Register.X0, Register.X1);
+                    break;
+                case "%":
+                    c.Sdiv(Register.X2, Register.X0, Register.X1);
+                    c.Mul(Register.X3, Register.X2, Register.X1);
+                    c.Sub(Register.X0, Register.X0, Register.X3);
+                    break;
+                default:
+                    throw new Exception($"Unsupported operation: {operation}");
             }
 
             c.Push(Register.X0); // Push result -> [result]
@@ -928,11 +939,27 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             "!=" => "ne",
             _ => throw new Exception("Operador inválido")
         };
-        if (isLeftDouble || isRightDouble)
+        if (left.Type == StackObject.StackObjectType.Float && right.Type == StackObject.StackObjectType.Float)
         {
-            // Comparación de floats
-            if (!isLeftDouble) c.Scvtf(Register.D1, Register.X0);
-            if (!isRightDouble) c.Scvtf(Register.D0, Register.X1);
+            c.Fcmp(Register.D1, Register.D0);
+            c.Cset(Register.X0, condition);
+        }
+        else if (left.Type == StackObject.StackObjectType.Float || right.Type == StackObject.StackObjectType.Float)
+        {
+            // Cargar ambos operandos en registros flotantes
+            if (left.Type != StackObject.StackObjectType.Float)
+            {
+                c.Scvtf(Register.D1, Register.X0); // Convertir entero izquierdo a float
+            }
+            else
+            {
+                c.Fmov(Register.D1, Register.D0); // Mover float izquierdo a D1
+            }
+
+            if (right.Type != StackObject.StackObjectType.Float)
+            {
+                c.Scvtf(Register.D0, Register.X1); // Convertir entero derecho a float
+            }
             c.Fcmp(Register.D1, Register.D0);
             c.Cset(Register.X0, condition);
         }

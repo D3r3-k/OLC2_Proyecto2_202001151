@@ -1,4 +1,3 @@
-
 // Función sin parámetros que no retorna nada
 func saludar() {
 	fmt.Println("¡Hola, mundo!")
