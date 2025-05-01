@@ -910,20 +910,37 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitEquality
     public override Object? VisitEquality([NotNull] LanguageParser.EqualityContext context)
     {
+        // Comparando numeros enteros
         c.Comment($"Equality operation: {context.op.Text}");
         Visit(context.expr(0)); // Left operand
         Visit(context.expr(1)); // Right operand
-
         // Determinar tipos
-        var isRightFloat = c.TopObject().Type == StackObject.StackObjectType.Float;
-        var right = c.PopObject(isRightFloat ? Register.D0 : Register.X1);
-        var isLeftFloat = c.TopObject().Type == StackObject.StackObjectType.Float;
-        var left = c.PopObject(isLeftFloat ? Register.D1 : Register.X0);
-
+        var isRightDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
+        var right = c.PopObject(isRightDouble ? Register.D0 : Register.X1);
+        var isLeftDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
+        var left = c.PopObject(isLeftDouble ? Register.D1 : Register.X0);
         string op = context.op.Text;
-        string condition = op == "==" ? "eq" : "ne";
-
-        if (left.Type == StackObject.StackObjectType.String && right.Type == StackObject.StackObjectType.String)
+        string condition = op switch
+        {
+            "==" => "eq",
+            "!=" => "ne",
+            _ => throw new Exception("Operador inválido")
+        };
+        if (isLeftDouble || isRightDouble)
+        {
+            // Comparación de floats
+            if (!isLeftDouble) c.Scvtf(Register.D1, Register.X0);
+            if (!isRightDouble) c.Scvtf(Register.D0, Register.X1);
+            c.Fcmp(Register.D1, Register.D0);
+            c.Cset(Register.X0, condition);
+        }
+        else if (left.Type == StackObject.StackObjectType.Int || left.Type == StackObject.StackObjectType.Rune)
+        {
+            // Comparación de enteros o runes
+            c.Cmp(Register.X0, Register.X1);
+            c.Cset(Register.X0, condition);
+        }
+        else if (left.Type == StackObject.StackObjectType.String && right.Type == StackObject.StackObjectType.String)
         {
             // Comparación de strings
             c._stdLib.Use("string_compare");
@@ -933,26 +950,12 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             c.Cmp(Register.X0, 0); // Comparar resultado con 0
             c.Cset(Register.X0, condition); // X0 = 1 si condición se cumple
         }
-        else if (isLeftFloat || isRightFloat)
-        {
-            // Comparación de floats
-            if (!isLeftFloat) c.Scvtf(Register.D1, Register.X0);
-            if (!isRightFloat) c.Scvtf(Register.D0, Register.X1);
-            c.Fcmp(Register.D1, Register.D0);
-            c.Cset(Register.X0, condition); // Usar EQ o NE
-        }
         else
         {
-            // Comparación de enteros, booleanos o runes
-            c.Cmp(Register.X0, Register.X1);
-            c.Cset(Register.X0, condition);
-            c.Comment("Equality comparison");
+            throw new SemanticError("Tipos no comparables", context.Start);
         }
-
         c.Push(Register.X0);
-        c.PushObject(c.BoolObject());
-        c.Comment("End of Equality operation");
-
+        c.PushObject(c.BoolObject()); // Push boolean result
         return null;
     }
     // VisitBoolean
