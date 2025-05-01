@@ -7,31 +7,28 @@ public class StandardLibrary
     {
         UsedFunctions.Add(function);
 
-        if (function == "print_integer")
+        var symbolMappings = new Dictionary<string, string[]>
         {
-            UsedSymbols.Add("minus_sign");
-        }
-        else if (function == "print_double")
-        {
-            UsedSymbols.Add("dot_char");
-            UsedSymbols.Add("zero_char");
-        }
-        else if (function == "print_bool")
-        {
-            UsedSymbols.Add("true_str");
-            UsedSymbols.Add("false_str");
-        }
-        else if (function == "string_compare")
-        {
-            UsedSymbols.Add("string_compare");
-        }
-        else if (function == "print_rune")
-        {
-            UsedSymbols.Add("rune_char");
-        }
+            { "print_integer", new[] { "minus_sign" } },
+            { "print_double", new[] { "dot_char", "zero_char" } },
+            { "print_bool", new[] { "true_str", "false_str" } },
+            { "print_rune", new[] { "rune_char" } },
+            { "print_newline", new[] { "newline_char" } },
+        };
 
+        if (symbolMappings.TryGetValue(function, out var symbols))
+        {
+            foreach (var symbol in symbols)
+            {
+                UsedSymbols.Add(symbol);
+            }
+        }
     }
 
+    public bool IsUsed(string function)
+    {
+        return UsedFunctions.Contains(function);
+    }
     public string GetFunctionDefinitions()
     {
         var functions = new List<string>();
@@ -162,47 +159,31 @@ print_result:
     "
     },
     { "print_string", @"
-//--------------------------------------------------------------
-// print_string - Prints a null-terminated string to stdout
-//
-// Input:
-//   x0 - The address of the null-terminated string to print
-//--------------------------------------------------------------
 print_string:
-    // Save link register and other registers we'll use
-    stp     x29, x30, [sp, #-16]!
-    stp     x19, x20, [sp, #-16]!
+    stp x29, x30, [sp, #-16]!
+    stp x19, x20, [sp, #-16]!
     
-    // x19 will hold the string address
-    mov     x19, x0
+    mov x19, x0                // x19 = dirección del string
+    mov x20, x0                // Copia para calcular longitud
+
+// Calcular longitud del string
+calculate_length:
+    ldrb w0, [x20], #1
+    cbnz w0, calculate_length
     
-print_loop:
-    // Load a byte from the string
-    ldrb    w20, [x19]
-    
-    // Check if it's the null terminator (0)
-    cbz     w20, print_done
-    
-    // Prepare for write syscall
-    mov     x0, #1              // File descriptor: 1 for stdout
-    mov     x1, x19             // Address of the character to print
-    mov     x2, #1              // Length: 1 byte
-    mov     x8, #64             // syscall: write (64 on ARM64)
-    svc     #0                  // Make the syscall
-    
-    // Move to the next character
-    add     x19, x19, #1
-    
-    // Continue the loop
-    b       print_loop
-    
-    
-print_done:
-    // Restore saved registers
-    ldp     x19, x20, [sp], #16
-    ldp     x29, x30, [sp], #16
-    ret     // Return to the caller
-    "
+    sub x2, x20, x19           // x2 = longitud (incluyendo null terminator)
+    sub x2, x2, #1             // Excluir el null terminator
+
+// Hacer syscall write
+    mov x0, #1                 // stdout
+    mov x1, x19                // buffer
+    mov x8, #64                // syscall write
+    svc #0
+
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+"
     },
     { "print_double", @"
 //--------------------------------------------------------------
@@ -346,35 +327,35 @@ exit_function:
         "
     },
     { "string_compare", @"
-    string_compare:
-        // X0 = str1, X1 = str2
-        stp x29, x30, [sp, #-16]!
-        stp x19, x20, [sp, #-16]!
-        mov x19, x0
-        mov x20, x1
+string_compare:
+    // X0 = str1, X1 = str2
+    stp x29, x30, [sp, #-16]!
+    stp x19, x20, [sp, #-16]!
+    mov x19, x0
+    mov x20, x1
 
-    compare_loop:
-        ldrb w0, [x19], #1
-        ldrb w1, [x20], #1
-        cmp w0, w1
-        b.ne not_equal
-        cbnz w0, compare_loop
-        
-        // Strings are equal
-        mov x0, 0
-        b compare_end
-        
-    not_equal:
-        mov x0, 1
-        
-    compare_end:
-        ldp x19, x20, [sp], #16
-        ldp x29, x30, [sp], #16
-        ret
-    "
-    },
+compare_loop:
+    ldrb w0, [x19], #1
+    ldrb w1, [x20], #1
+    cmp w0, w1
+    b.ne not_equal
+    cbnz w0, compare_loop
+
+    // Strings iguales
+    mov x0, #0
+    b compare_end
+
+not_equal:
+    mov x0, #1
+
+compare_end:
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+"
+},
     { "print_rune", @"
-print_rune:
+    print_rune:
     // Input: X0 = address of rune
     stp x29, x30, [sp, #-16]!
     stp x19, x20, [sp, #-16]!
@@ -404,8 +385,19 @@ print_rune:
         ldp x19, x20, [sp], #16
         ldp x29, x30, [sp], #16
         ret
-    "},
-
+    "
+    },
+    { "print_newline", @"
+    print_newline:
+        // Imprimir salto de línea
+        mov x0, #1
+        adr x1, newline_char
+        mov x2, #1
+        mov x8, #64
+        svc #0
+        ret
+    "
+    },
 
 };
 
@@ -420,6 +412,7 @@ print_rune:
         { "false_str_len", @".equ false_str_len, . - false_str" },
         { "string_compare", @"string_compare: .ascii ""string_compare""" },
         { "rune_char", @"rune_char: .ascii ""r""" },
+        { "newline_char", @"newline_char: .ascii ""\n""" }
     };
 
 }

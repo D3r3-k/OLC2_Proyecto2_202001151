@@ -15,7 +15,7 @@ public class ArmGenerator
 {
     public List<string> _instructions = new List<string>();
     public List<string> _funcInstructions = new List<string>();
-    private readonly StandardLibrary _stdLib = new StandardLibrary();
+    public readonly StandardLibrary _stdLib = new StandardLibrary();
     private List<StackObject> _stack = new List<StackObject>();
     private int _depth = 0;
     private int labelCounter = 0;
@@ -79,16 +79,14 @@ public class ArmGenerator
             case StackObject.StackObjectType.String:
                 List<byte> stringArray = Utils.StringToByteArray((string)value);
                 Push(Register.HP);
-                for (int i = 0; i < stringArray.Count; i++)
+                foreach (var byteVal in stringArray)
                 {
-                    var charCode = stringArray[i];
-                    Comment($"Pushing char {charCode} to heap - {(char)charCode}");
-                    Mov(Register.W0, charCode);
+                    Comment($"Pushing byte {byteVal} to heap");
+                    Mov(Register.W0, byteVal);
                     Strb(Register.W0, Register.HP);
                     Mov(Register.X0, 1);
                     Add(Register.HP, Register.HP, Register.X0);
                 }
-
                 break;
             case StackObject.StackObjectType.Rune:
                 char runeValue = (char)Convert.ToInt32(value);
@@ -255,7 +253,7 @@ public class ArmGenerator
     public (int, StackObject) GetObject(string id)
     {
         int byteOffset = 0;
-
+        // Buscar desde el tope de la pila hacia abajo
         for (int i = _stack.Count - 1; i >= 0; i--)
         {
             if (_stack[i].Id == id)
@@ -273,6 +271,10 @@ public class ArmGenerator
     {
         _instructions.Add($"ADD {rd}, {rs1}, {rs2}");
     }
+    public void Add(string rd, string rs1, int imm)
+    {
+        _instructions.Add($"ADD {rd}, {rs1}, #{imm}");
+    }
 
     public void Adr(string rd, string label)
     {
@@ -283,6 +285,10 @@ public class ArmGenerator
     {
         _instructions.Add($"SUB {rd}, {rs1}, {rs2}");
     }
+    public void Sub(string rd, string rs1, int imm)
+    {
+        _instructions.Add($"SUB {rd}, {rs1}, #{imm}");
+    }
 
     public void Mul(string rd, string rs1, string rs2)
     {
@@ -292,6 +298,10 @@ public class ArmGenerator
     public void Div(string rd, string rs1, string rs2)
     {
         _instructions.Add($"DIV {rd}, {rs1}, {rs2}");
+    }
+    public void Sdiv(string rd, string rs1, string rs2)
+    {
+        _instructions.Add($"SDIV {rd}, {rs1}, {rs2}");
     }
 
     public void Addi(string rd, string rs1, int imm)
@@ -350,6 +360,15 @@ public class ArmGenerator
     public void Fmov(string rd, string rs)
     {
         _instructions.Add($"FMOV {rd}, {rs}");
+    }
+    public void Fmov(string rd, double value)
+    {
+        long bits = BitConverter.DoubleToInt64Bits(value);
+        _instructions.Add($"MOV X1, #{bits & 0xFFFF}");
+        _instructions.Add($"MOVK X1, #{(bits >> 16) & 0xFFFF}, LSL #16");
+        _instructions.Add($"MOVK X1, #{(bits >> 32) & 0xFFFF}, LSL #32");
+        _instructions.Add($"MOVK X1, #{(bits >> 48) & 0xFFFF}, LSL #48");
+        _instructions.Add($"FMOV {rd}, X1");
     }
     public void Fadd(string rd, string rs1, string rs2)
     {
@@ -451,9 +470,18 @@ public class ArmGenerator
         _instructions.Add($"RET");
     }
 
-    public String GetLabel()
+    public string GetLabel(string prefix = "L")
     {
-        return $"L{labelCounter++}";
+        return $"{prefix}{labelCounter++}_";
+    }
+
+    public string GetUniqueLabel()
+    {
+        return $"L{labelCounter++}_";
+    }
+    public void ResetLabelCounter()
+    {
+        labelCounter = 0;
     }
 
     public void SetLabel(string label)
@@ -499,7 +527,7 @@ public class ArmGenerator
     {
         _stdLib.Use("print_string");
         _instructions.Add($"MOV X0, {rs}");
-        _instructions.Add($"BL print_string");
+        _instructions.Add($"BL print_string");        
     }
 
     public void PrintBool(string rs)
@@ -520,6 +548,11 @@ public class ArmGenerator
         _instructions.Add($"BL print_rune");
     }
 
+    public void PrintNewLine()
+    {
+        _stdLib.Use("print_newline");
+        Bl("print_newline");
+    }
 
     public void Comment(string comment)
     {

@@ -201,16 +201,17 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     {
         c.Comment("Print Statement");
         c.Comment("Visiting expressions");
+
+        // Imprimir todos los argumentos
         foreach (var expr in context.expr())
         {
             Visit(expr);
-            c.Comment("Pop the value to print");
             var isDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
-            var value = c.PopObject(isDouble ? Register.D0 : Register.X0); // Pop the value to print
+            var value = c.PopObject(isDouble ? Register.D0 : Register.X0);
 
             if (value.Type == StackObject.StackObjectType.Int)
             {
-                c.PrintInteger(Register.X0); // Call the print function
+                c.PrintInteger(Register.X0);
             }
             else if (value.Type == StackObject.StackObjectType.Float)
             {
@@ -233,6 +234,9 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                 c.PrintNil();
             }
         }
+
+        // Agregar salto de línea al final
+        c.PrintNewLine();
 
         return null;
     }
@@ -521,29 +525,52 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     public override Object? VisitMulDiv([NotNull] LanguageParser.MulDivContext context)
     {
         var operation = context.op.Text;
-        // 1 * 2
-        // Top -> []
-        c.Comment("Visit left operand");
-        Visit(context.expr(0)); // Visit 1 -> [1]
-        c.Comment("Visit right operand");
-        Visit(context.expr(1)); // Visit 2 -> [1, 2]
-        c.Comment("Pop operands");
-        c.Pop(Register.X1); // Pop 2 -> [1]
-        c.Pop(Register.X0); // Pop 1 -> []
-        if (operation == "*")
+        c.Comment($"{operation} operation");
+
+        // Evaluar operandos
+        Visit(context.expr(0)); // Left operand -> [left]
+        Visit(context.expr(1)); // Right operand -> [left, right]
+
+        // Determinar tipos
+        var isRightDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
+        var right = c.PopObject(isRightDouble ? Register.D0 : Register.X1); // Pop right -> [left]
+        var isLeftDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
+        var left = c.PopObject(isLeftDouble ? Register.D1 : Register.X0); // Pop left -> []
+
+        if (isLeftDouble || isRightDouble)
         {
-            c.Mul(Register.X0, Register.X0, Register.X1); // X0 = 1 * 2
+            // Operación con flotantes
+            if (!isLeftDouble) c.Scvtf(Register.D1, Register.X0); // Convert left to double
+            if (!isRightDouble) c.Scvtf(Register.D0, Register.X1); // Convert right to double
+
+            if (operation == "*")
+            {
+                c.Fmul(Register.D0, Register.D0, Register.D1); // D0 = left * right
+            }
+            else // "/"
+            {
+                c.Fdiv(Register.D0, Register.D1, Register.D0); // D0 = left / right
+            }
+
+            c.Push(Register.D0); // Push result -> [result]
+            c.PushObject(c.CloneObject(isLeftDouble ? left : right));
         }
-        else if (operation == "/")
+        else
         {
-            c.Div(Register.X0, Register.X0, Register.X1); // X0 = 1 / 2
+            // Operación con enteros
+            if (operation == "*")
+            {
+                c.Mul(Register.X0, Register.X0, Register.X1); // X0 = left * right
+            }
+            else // "/"
+            {
+                c.Sdiv(Register.X0, Register.X0, Register.X1); // X0 = left / right
+            }
+
+            c.Push(Register.X0); // Push result -> [result]
+            c.PushObject(c.CloneObject(left));
         }
-        // else if (operation == "%")
-        // {
-        //     c.Mod(Register.X0, Register.X0, Register.X1); // X0 = 1 % 2
-        // }
-        c.Comment("Push result");
-        c.Push(Register.X0); // Push result -> [result]
+
         return null;
     }
     // VisitAddSub
@@ -606,75 +633,53 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitParens
     public override Object? VisitParens([NotNull] LanguageParser.ParensContext context)
     {
+        c.Comment("Parentheses");
+        Visit(context.expr()); // Visit the expression inside parentheses
         return null;
     }
     // VisitRelational
     public override Object? VisitRelational([NotNull] LanguageParser.RelationalContext context)
     {
-        c.Comment("Relational operation");
-        var operation = context.op.Text;
-        Visit(context.expr(0)); // Visit left operand
-        Visit(context.expr(1)); // Visit right operand
+        c.Comment($"Relational operation: {context.op.Text}");
+        Visit(context.expr(0)); // Left operand
+        Visit(context.expr(1)); // Right operand
 
-        c.Comment("Pop operands");
-        var isRightDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
-        var right = c.PopObject(isRightDouble ? Register.D0 : Register.X1); // Pop 2 -> [1]
-        var isLeftDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
-        var left = c.PopObject(isLeftDouble ? Register.D1 : Register.X1); // Pop 1 -> []
+        // Determinar tipos
+        var isRightFloat = c.TopObject().Type == StackObject.StackObjectType.Float;
+        var right = c.PopObject(isRightFloat ? Register.D0 : Register.X1);
+        var isLeftFloat = c.TopObject().Type == StackObject.StackObjectType.Float;
+        var left = c.PopObject(isLeftFloat ? Register.D1 : Register.X0);
 
-
-        Console.WriteLine("|------------------");
-        Console.WriteLine("| Relational: " + operation);
-        Console.WriteLine("|------------------");
-        Console.WriteLine("| Left: " + left.Id);
-        Console.WriteLine("| Right: " + right.Id);
-        Console.WriteLine("|------------------");
-        if (isLeftDouble || isRightDouble)
+        string op = context.op.Text;
+        string condition = op switch
         {
-            return null;
-        }
-        c.Cmp(Register.X1, Register.X0); // Compare left and right
-        var trueLabel = c.GetLabel();
-        var endLabel = c.GetLabel();
+            ">" => "gt",
+            "<" => "lt",
+            ">=" => "ge",
+            "<=" => "le",
+            _ => throw new Exception("Operador inválido")
+        };
 
-        /*
-        cmp x1, x0
-        [beq] [bne] [blt] [bgt] [ble] [bge] -> true
-        push 0
-        b end
-        trueLabel:
-        push 1
-        end:
-        */
-        switch (operation)
+        if (isLeftFloat || isRightFloat)
         {
-            case "<":
-                c.Blt(trueLabel);
-                break;
-            case ">":
-                c.Bgt(trueLabel);
-                break;
-            case "<=":
-                c.Ble(trueLabel);
-                break;
-            case ">=":
-                c.Bge(trueLabel);
-                break;
-            case "==":
-                c.Beq(trueLabel);
-                break;
-            case "!=":
-                c.Bne(trueLabel);
-                break;
+            // Comparación de floats
+            if (!isLeftFloat) c.Scvtf(Register.D1, Register.X0);
+            if (!isRightFloat) c.Scvtf(Register.D0, Register.X1);
+            c.Fcmp(Register.D1, Register.D0);
+            c.Cset(Register.X0, condition);
         }
-        c.Mov(Register.X0, 0); // Push false
-        c.Push(Register.X0); // Push result -> [result]
-        c.B(endLabel);
-        c.SetLabel(trueLabel);
-        c.Mov(Register.X0, 1); // Push true
-        c.Push(Register.X0); // Push result -> [result]
-        c.SetLabel(endLabel);
+        else if (left.Type == StackObject.StackObjectType.Int || left.Type == StackObject.StackObjectType.Rune)
+        {
+            // Comparación de enteros o runes
+            c.Cmp(Register.X0, Register.X1);
+            c.Cset(Register.X0, condition);
+        }
+        else
+        {
+            throw new SemanticError("Tipos no comparables", context.Start);
+        }
 
+        c.Push(Register.X0);
         c.PushObject(c.BoolObject());
 
         return null;
@@ -682,6 +687,66 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitIncDec
     public override Object? VisitIncDec([NotNull] LanguageParser.IncDecContext context)
     {
+        c.Comment($"{context.op.Text} operation");
+        var operation = context.op.Text;
+        var id = context.ID().GetText();
+
+        // Obtener información de la variable
+        var (offset, obj) = c.GetObject(id);
+        var isDouble = obj.Type == StackObject.StackObjectType.Float;
+
+        // Cargar la variable
+        if (insideFunction != null)
+        {
+            // Variable local (usando frame pointer)
+            c.Mov(Register.X1, obj.Offset * 8);
+            c.Sub(Register.X1, Register.FP, Register.X1);
+        }
+        else
+        {
+            // Variable global (usando stack pointer)
+            c.Mov(Register.X1, offset);
+            c.Add(Register.X1, Register.SP, Register.X1);
+        }
+
+        // Operación de incremento/decremento
+        if (isDouble)
+        {
+            c.Ldr(Register.D0, Register.X1); // Cargar valor flotante
+            c.Fmov(Register.D1, 1.0);       // Cargar 1.0 en registro flotante
+
+            if (operation == "++")
+            {
+                c.Fadd(Register.D0, Register.D0, Register.D1); // Incremento
+            }
+            else
+            {
+                c.Fsub(Register.D0, Register.D0, Register.D1); // Decremento
+            }
+
+            c.Str(Register.D0, Register.X1); // Almacenar nuevo valor
+            c.Push(Register.D0);             // Push resultado
+        }
+        else
+        {
+            c.Ldr(Register.X0, Register.X1); // Cargar valor entero
+
+            if (operation == "++")
+            {
+                c.Add(Register.X0, Register.X0, 1); // Incremento
+            }
+            else
+            {
+                c.Sub(Register.X0, Register.X0, 1); // Decremento
+            }
+
+            c.Str(Register.X0, Register.X1); // Almacenar nuevo valor
+            c.Push(Register.X0);             // Push resultado
+        }
+
+        // Actualizar el objeto en la pila
+        c.PushObject(c.CloneObject(obj));
+
         return null;
     }
     // VisitString
@@ -740,7 +805,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         }
 
         // ARM64 logical NOT implementation:
-        c.Cmp(Register.X0, "0");          // Compare with 0 (false)
+        c.Cmp(Register.X0, 0);          // Compare with 0 (false)
         c.Cset(Register.X0, Register.EQ);  // Set to 1 if equal (was 0), else 0
 
         c.Push(Register.X0);
@@ -845,6 +910,49 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitEquality
     public override Object? VisitEquality([NotNull] LanguageParser.EqualityContext context)
     {
+        c.Comment($"Equality operation: {context.op.Text}");
+        Visit(context.expr(0)); // Left operand
+        Visit(context.expr(1)); // Right operand
+
+        // Determinar tipos
+        var isRightFloat = c.TopObject().Type == StackObject.StackObjectType.Float;
+        var right = c.PopObject(isRightFloat ? Register.D0 : Register.X1);
+        var isLeftFloat = c.TopObject().Type == StackObject.StackObjectType.Float;
+        var left = c.PopObject(isLeftFloat ? Register.D1 : Register.X0);
+
+        string op = context.op.Text;
+        string condition = op == "==" ? "eq" : "ne";
+
+        if (left.Type == StackObject.StackObjectType.String && right.Type == StackObject.StackObjectType.String)
+        {
+            // Comparación de strings
+            c._stdLib.Use("string_compare");
+            c.Push(Register.X0); // Push dirección izquierda
+            c.Push(Register.X1); // Push dirección derecha
+            c.Bl("string_compare");
+            c.Cmp(Register.X0, 0); // Comparar resultado con 0
+            c.Cset(Register.X0, condition); // X0 = 1 si condición se cumple
+        }
+        else if (isLeftFloat || isRightFloat)
+        {
+            // Comparación de floats
+            if (!isLeftFloat) c.Scvtf(Register.D1, Register.X0);
+            if (!isRightFloat) c.Scvtf(Register.D0, Register.X1);
+            c.Fcmp(Register.D1, Register.D0);
+            c.Cset(Register.X0, condition); // Usar EQ o NE
+        }
+        else
+        {
+            // Comparación de enteros, booleanos o runes
+            c.Cmp(Register.X0, Register.X1);
+            c.Cset(Register.X0, condition);
+            c.Comment("Equality comparison");
+        }
+
+        c.Push(Register.X0);
+        c.PushObject(c.BoolObject());
+        c.Comment("End of Equality operation");
+
         return null;
     }
     // VisitBoolean
@@ -863,12 +971,71 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         var value = context.RUNE().GetText().Trim('\'');
         c.Comment("Rune Constante: " + value);
         var runeObject = c.RuneObject();
-        c.PushConstant(runeObject, value[0]); // Push the rune value to the stack
+        // Almacenar como byte (carácter)
+        c.PushConstant(runeObject, (byte)value[0]);
         return null;
     }
     // VisitAndOr
     public override Object? VisitAndOr([NotNull] LanguageParser.AndOrContext context)
     {
+        c.Comment($"Logical {context.op.Text} operation");
+        string op = context.op.Text;
+
+        string falseLabel = c.GetLabel("ANDOR_FALSE");
+        string trueLabel = c.GetLabel("ANDOR_TRUE");
+        string endLabel = c.GetLabel("ANDOR_END");
+
+        // Evaluar primera condición
+        Visit(context.expr(0));
+        var left = c.PopObject(Register.X0); // Resultado en X0
+
+        // Convertir a booleano (0 o 1)
+        c.Cmp(Register.X0, 0);
+        c.Cset(Register.X0, "ne"); // X0 = 1 si es verdadero
+
+        if (op == "&&")
+        {
+            // AND lógico: si left es falso, salta a false
+            c.Cbz(Register.X0, falseLabel); // Si es 0, salta
+        }
+        else // ||
+        {
+            // OR lógico: si left es verdadero, salta a true
+            c.Cbnz(Register.X0, trueLabel); // Si es 1, salta
+        }
+
+        // Evaluar segunda condición
+        Visit(context.expr(1));
+        var right = c.PopObject(Register.X0);
+
+        // Convertir a booleano
+        c.Cmp(Register.X0, 0);
+        c.Cset(Register.X0, "ne"); // X0 = 1 si es verdadero
+
+        if (op == "&&")
+        {
+            c.B(endLabel);
+            // Manejar caso donde primera condición fue falsa
+            c.SetLabel(falseLabel);
+            c.Mov(Register.X0, 0);
+            c.B(endLabel);
+        }
+        else // ||
+        {
+            c.B(endLabel);
+            // Manejar caso donde primera condición fue verdadera
+            c.SetLabel(trueLabel);
+            c.Mov(Register.X0, 1);
+            c.B(endLabel);
+        }
+
+        // Etiqueta final
+        c.SetLabel(endLabel);
+
+        // Push resultado final
+        c.Push(Register.X0);
+        c.PushObject(c.BoolObject());
+
         return null;
     }
 
@@ -882,4 +1049,6 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // // VisitArrayAccess
     // // VisitArgs
     // // VisitStruct
+
+
 }
