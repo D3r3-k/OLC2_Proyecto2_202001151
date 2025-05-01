@@ -535,15 +535,15 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
         // Determinar tipos
         var isRightDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
-        var right = c.PopObject(isRightDouble ? Register.D0 : Register.X1); // Pop right -> [left]
+        var right = c.PopObject(isRightDouble ? Register.D1 : Register.X1); // Pop right -> [left]
         var isLeftDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
-        var left = c.PopObject(isLeftDouble ? Register.D1 : Register.X0); // Pop left -> []
+        var left = c.PopObject(isLeftDouble ? Register.D0 : Register.X0); // Pop left -> []
 
         if (isLeftDouble || isRightDouble)
         {
             // Operación con flotantes
-            if (!isLeftDouble) c.Scvtf(Register.D1, Register.X0); // Convert left to double
-            if (!isRightDouble) c.Scvtf(Register.D0, Register.X1); // Convert right to double
+            if (!isLeftDouble) c.Scvtf(Register.D0, Register.X0); // Convert left to double
+            if (!isRightDouble) c.Scvtf(Register.D1, Register.X1); // Convert right to double
 
             switch (operation)
             {
@@ -551,7 +551,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                     c.Fmul(Register.D0, Register.D0, Register.D1);
                     break;
                 case "/":
-                    c.Fdiv(Register.D0, Register.D1, Register.D0);
+                    c.Fdiv(Register.D0, Register.D0, Register.D1);
                     break;
                 default:
                     throw new Exception($"Unsupported operation: {operation}");
@@ -997,7 +997,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             throw new SemanticError("Tipos no comparables", context.Start);
         }
         c.Push(Register.X0);
-        c.PushObject(c.BoolObject()); // Push boolean result
+        c.PushObject(c.BoolObject());
         return null;
     }
     // VisitBoolean

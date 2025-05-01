@@ -57,24 +57,19 @@ public class ArmGenerator
                 Push(Register.X0);
                 break;
             case StackObject.StackObjectType.Float:
-                double doubleValue = (double)value;
-                Comment($"Float constant: {doubleValue}");
-
-                // Convertir el double a bits
-                long floatBits = BitConverter.DoubleToInt64Bits(doubleValue);
-
-                // Cargar el valor en partes de 16 bits
-                for (int shift = 0; shift < 64; shift += 16)
+                long floatBits = BitConverter.DoubleToInt64Bits((double)value);
+                ushort[] floatParts = new ushort[4];
+                for (int i = 0; i < 4; i++)
                 {
-                    ushort part = (ushort)((floatBits >> shift) & 0xFFFF);
-                    if (part != 0)
-                    {
-                        _instructions.Add(shift == 0
-                            ? $"MOVZ X0, #{part}, LSL #{shift}"
-                            : $"MOVK X0, #{part}, LSL #{shift}");
-                    }
+                    floatParts[i] = (ushort)((floatBits >> (i * 16)) & 0xFFFF);
                 }
 
+                _instructions.Add($"MOVZ X0,  #{floatParts[0]}, LSL #0");
+                for (int i = 1; i < 4; i++)
+                {
+                    _instructions.Add($"MOVK X0, #{floatParts[i]}, LSL #{i * 16}");
+                }
+                _instructions.Add("FMOV D0, X0");
                 Push(Register.X0);
                 break;
             case StackObject.StackObjectType.String:
