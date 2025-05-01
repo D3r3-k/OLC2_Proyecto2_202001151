@@ -1,5 +1,6 @@
 using analyzer;
 using Antlr4.Runtime.Misc;
+using Antlr4.Runtime.Tree;
 
 
 public class FunctionMetadata
@@ -104,7 +105,9 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         int totalFrameSize = baseOffset + paramsOffset + localOffset + returnOffset;
 
         string funcName = context.ID().GetText();
-        StackObject.StackObjectType funcType = Extras.GetTypeArm(context.type().GetText());
+        StackObject.StackObjectType funcType = context.type() != null
+            ? Extras.GetTypeArm(context.type().GetText())
+            : StackObject.StackObjectType.Void;
 
         functions.Add(funcName, new FunctionMetadata
         {
@@ -120,24 +123,23 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         c.SetLabel(funcName);
 
         var paramCounter = 0;
-        var paramTypes = context.@params().type();
-        var paramIds = context.@params().ID();
+        var paramTypes = context.@params()?.type() ?? Array.Empty<LanguageParser.TypeContext>();
+        var paramIds = context.@params()?.ID() ?? Array.Empty<ITerminalNode>();
 
         for (int i = 0; i < paramIds.Length; i++)
         {
-            var paramId = paramIds[i];
-            var paramType = paramTypes[i];
+            var paramId = paramIds[i].GetText();
+            var paramType = paramTypes[i].GetText();
 
             c.PushObject(new StackObject
             {
-                Type = Extras.GetTypeArm(paramType.GetText()),
-                Id = paramId.GetText(),
+                Type = Extras.GetTypeArm(paramType),
+                Id = paramId,
                 Offset = paramCounter + baseOffset,
                 Length = 8
             });
             paramCounter++;
         }
-
 
 
         foreach (var element in frame)
