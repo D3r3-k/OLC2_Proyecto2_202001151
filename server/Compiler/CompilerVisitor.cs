@@ -936,9 +936,6 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         }
         else if (left.Type == StackObject.StackObjectType.Int || left.Type == StackObject.StackObjectType.Rune)
         {
-            Console.WriteLine("Comparando enteros o runes");
-            Console.WriteLine($"Left: {left.Type}");
-            Console.WriteLine($"Right: {right.Type}");
             // Comparación de enteros o runes
             c.Cmp(Register.X0, Register.X1);
             c.Cset(Register.X0, condition);
