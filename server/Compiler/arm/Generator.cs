@@ -527,7 +527,7 @@ public class ArmGenerator
     {
         _stdLib.Use("print_string");
         _instructions.Add($"MOV X0, {rs}");
-        _instructions.Add($"BL print_string");        
+        _instructions.Add($"BL print_string");
     }
 
     public void PrintBool(string rs)

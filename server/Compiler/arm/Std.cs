@@ -355,38 +355,27 @@ compare_end:
 "
 },
     { "print_rune", @"
-    print_rune:
-    // Input: X0 = address of rune
-    stp x29, x30, [sp, #-16]!
-    stp x19, x20, [sp, #-16]!
+//--------------------------------------------------------------
+// print_rune - Prints a rune from its ASCII value (not address)
+//
+// Input:
+//   x0 - ASCII value of the rune (byte)
+//--------------------------------------------------------------
+print_rune:
+    stp x29, x30, [sp, #-32]!       // Reservar espacio en el stack
+    strb w0, [sp, #16]              // Almacenar byte en el stack
     
-    mov x19, x0          // Guardar dirección del rune
-    
-    // Verificar si es carácter imprimible
-    ldrb w20, [x19]
-    cmp w20, #32
-    b.lt print_rune_end
-    cmp w20, #126
-    b.gt print_rune_end
-    
-    // Print the rune
-    mov x0, #1          // stdout
-    mov x1, x19         // Address
-    mov x2, #1          // Length
-    mov x8, #64         // syscall: write
+    // Imprimir desde el stack
+    mov x0, #1                      // stdout
+    add x1, sp, #16                 // Dirección del byte
+    mov x2, #1                      // Longitud = 1 byte
+    mov x8, #64                     // syscall: write
     svc #0
     
-    // Print newline (opcional)
-    // adr x1, newline
-    // mov x2, #1
-    // svc #0
-    
-    print_rune_end:
-        ldp x19, x20, [sp], #16
-        ldp x29, x30, [sp], #16
-        ret
-    "
-    },
+    ldp x29, x30, [sp], #32         // Restaurar stack
+    ret
+"
+},
     { "print_newline", @"
     print_newline:
         // Imprimir salto de línea

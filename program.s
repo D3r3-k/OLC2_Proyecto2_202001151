@@ -54,15 +54,8 @@ MOV x0, #1
 STR x0, [SP, #-8]!
 // Variable declaration: booleano
 // Rune Constante: A
-// Pushing rune 65 - A
-STR x10, [SP, #-8]!
-MOV w0, #65
-STRB w0, [x10]
-MOV x0, #1
-ADD x10, x10, x0
-MOV w0, #0
-STRB w0, [x10]
-ADD x10, x10, x0
+MOV x0, #65
+STR x0, [SP, #-8]!
 // Variable declaration: caracter
 // Print Statement
 // Visiting expressions
@@ -495,28 +488,163 @@ MOV X0, x0
 BL print_string
 BL print_newline
 // If Statement
+// Logical && operation
+// Logical && operation
+// Logical && operation
+// Logical && operation
 // Equality operation: ==
-MOV x0, #0
+MOV x0, #32
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Rune Constante: A
-// Pushing rune 65 - A
-STR x10, [SP, #-8]!
-MOV w0, #65
-STRB w0, [x10]
-MOV x0, #1
-ADD x10, x10, x0
-MOV w0, #0
-STRB w0, [x10]
-ADD x10, x10, x0
+// Constante: 42
+MOV x0, #42
+STR x0, [SP, #-8]!
 LDR x1, [SP], #8
 LDR x0, [SP], #8
 CMP x0, x1
 CSET x0, eq
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
-CBZ x0, L0_
+CMP x0, #0
+CSET x0, ne
+CBZ x0, ANDOR_FALSE9_
+// Relational operation: >
+MOV x0, #24
+ADD x0, sp, x0
+LDR x0, [x0, #0]
+STR x0, [SP, #-8]!
+// Constante: 3.0
+// Float constant: 3
+MOVK X0, #16392, LSL #48
+STR x0, [SP, #-8]!
+LDR d0, [SP], #8
+LDR d1, [SP], #8
+FCMP d1, d0
+CSET x0, gt
+STR x0, [SP, #-8]!
+LDR x0, [SP], #8
+CMP x0, #0
+CSET x0, ne
+B ANDOR_END11_
+ANDOR_FALSE9_:
+MOV x0, #0
+B ANDOR_END11_
+ANDOR_END11_:
+STR x0, [SP, #-8]!
+LDR x0, [SP], #8
+CMP x0, #0
+CSET x0, ne
+CBZ x0, ANDOR_FALSE6_
+// Equality operation: ==
+MOV x0, #16
+ADD x0, sp, x0
+LDR x0, [x0, #0]
+STR x0, [SP, #-8]!
+// String Constante: Hola!
+STR x10, [SP, #-8]!
+// Pushing byte 72 to heap
+MOV w0, #72
+STRB w0, [x10]
+MOV x0, #1
+ADD x10, x10, x0
+// Pushing byte 111 to heap
+MOV w0, #111
+STRB w0, [x10]
+MOV x0, #1
+ADD x10, x10, x0
+// Pushing byte 108 to heap
+MOV w0, #108
+STRB w0, [x10]
+MOV x0, #1
+ADD x10, x10, x0
+// Pushing byte 97 to heap
+MOV w0, #97
+STRB w0, [x10]
+MOV x0, #1
+ADD x10, x10, x0
+// Pushing byte 33 to heap
+MOV w0, #33
+STRB w0, [x10]
+MOV x0, #1
+ADD x10, x10, x0
+// Pushing byte 0 to heap
+MOV w0, #0
+STRB w0, [x10]
+MOV x0, #1
+ADD x10, x10, x0
+LDR x1, [SP], #8
+LDR x0, [SP], #8
+STR x0, [SP, #-8]!
+STR x1, [SP, #-8]!
+BL string_compare
+ADD sp, sp, #16
+CMP x0, #0
+CSET x0, eq
+STR x0, [SP, #-8]!
+LDR x0, [SP], #8
+CMP x0, #0
+CSET x0, ne
+B ANDOR_END8_
+ANDOR_FALSE6_:
+MOV x0, #0
+B ANDOR_END8_
+ANDOR_END8_:
+STR x0, [SP, #-8]!
+LDR x0, [SP], #8
+CMP x0, #0
+CSET x0, ne
+CBZ x0, ANDOR_FALSE3_
+// Equality operation: ==
+MOV x0, #8
+ADD x0, sp, x0
+LDR x0, [x0, #0]
+STR x0, [SP, #-8]!
+// Boolean Constante: true
+MOV x0, #1
+STR x0, [SP, #-8]!
+LDR x1, [SP], #8
+LDR x0, [SP], #8
+CMP x0, x1
+CSET x0, eq
+STR x0, [SP, #-8]!
+LDR x0, [SP], #8
+CMP x0, #0
+CSET x0, ne
+B ANDOR_END5_
+ANDOR_FALSE3_:
+MOV x0, #0
+B ANDOR_END5_
+ANDOR_END5_:
+STR x0, [SP, #-8]!
+LDR x0, [SP], #8
+CMP x0, #0
+CSET x0, ne
+CBZ x0, ANDOR_FALSE0_
+// Equality operation: ==
+MOV x0, #0
+ADD x0, sp, x0
+LDR x0, [x0, #0]
+STR x0, [SP, #-8]!
+// Rune Constante: B
+MOV x0, #66
+STR x0, [SP, #-8]!
+LDR x1, [SP], #8
+LDR x0, [SP], #8
+CMP x0, x1
+CSET x0, eq
+STR x0, [SP, #-8]!
+LDR x0, [SP], #8
+CMP x0, #0
+CSET x0, ne
+B ANDOR_END2_
+ANDOR_FALSE0_:
+MOV x0, #0
+B ANDOR_END2_
+ANDOR_END2_:
+STR x0, [SP, #-8]!
+LDR x0, [SP], #8
+CBZ x0, L12_
 // Block Statement
 // Print Statement
 // Visiting expressions
@@ -711,8 +839,8 @@ LDR x0, [SP], #8
 MOV X0, x0
 BL print_string
 BL print_newline
-B L1_
-L0_:
+B L13_
+L12_:
 // Block Statement
 // Print Statement
 // Visiting expressions
@@ -912,7 +1040,7 @@ LDR x0, [SP], #8
 MOV X0, x0
 BL print_string
 BL print_newline
-L1_:
+L13_:
 MOV x0, #0
 MOV x8, #93
 SVC #0
@@ -1199,37 +1327,53 @@ exit_function:
         ret
         
 
-    print_rune:
-    // Input: X0 = address of rune
-    stp x29, x30, [sp, #-16]!
-    stp x19, x20, [sp, #-16]!
+//--------------------------------------------------------------
+// print_rune - Prints a rune from its ASCII value (not address)
+//
+// Input:
+//   x0 - ASCII value of the rune (byte)
+//--------------------------------------------------------------
+print_rune:
+    stp x29, x30, [sp, #-32]!       // Reservar espacio en el stack
+    strb w0, [sp, #16]              // Almacenar byte en el stack
     
-    mov x19, x0          // Guardar dirección del rune
-    
-    // Verificar si es carácter imprimible
-    ldrb w20, [x19]
-    cmp w20, #32
-    b.lt print_rune_end
-    cmp w20, #126
-    b.gt print_rune_end
-    
-    // Print the rune
-    mov x0, #1          // stdout
-    mov x1, x19         // Address
-    mov x2, #1          // Length
-    mov x8, #64         // syscall: write
+    // Imprimir desde el stack
+    mov x0, #1                      // stdout
+    add x1, sp, #16                 // Dirección del byte
+    mov x2, #1                      // Longitud = 1 byte
+    mov x8, #64                     // syscall: write
     svc #0
     
-    // Print newline (opcional)
-    // adr x1, newline
-    // mov x2, #1
-    // svc #0
-    
-    print_rune_end:
-        ldp x19, x20, [sp], #16
-        ldp x29, x30, [sp], #16
-        ret
-    
+    ldp x29, x30, [sp], #32         // Restaurar stack
+    ret
+
+
+string_compare:
+    // X0 = str1, X1 = str2
+    stp x29, x30, [sp, #-16]!
+    stp x19, x20, [sp, #-16]!
+    mov x19, x0
+    mov x20, x1
+
+compare_loop:
+    ldrb w0, [x19], #1
+    ldrb w1, [x20], #1
+    cmp w0, w1
+    b.ne not_equal
+    cbnz w0, compare_loop
+
+    // Strings iguales
+    mov x0, #0
+    b compare_end
+
+not_equal:
+    mov x0, #1
+
+compare_end:
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
 newline_char: .ascii "\n"
 minus_sign: .ascii "-"
 dot_char: .ascii "."

@@ -960,6 +960,12 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             c.Cmp(Register.X0, Register.X1);
             c.Cset(Register.X0, condition);
         }
+        else if (left.Type == StackObject.StackObjectType.Rune && right.Type == StackObject.StackObjectType.Rune)
+        {
+            // Comparación de runes
+            c.Cmp(Register.X0, Register.X1);
+            c.Cset(Register.X0, condition);
+        }
         else
         {
             throw new SemanticError("Tipos no comparables", context.Start);
@@ -984,8 +990,12 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         var value = context.RUNE().GetText().Trim('\'');
         c.Comment("Rune Constante: " + value);
         var runeObject = c.RuneObject();
-        // Almacenar como byte (carácter)
-        c.PushConstant(runeObject, (byte)value[0]);
+
+        // Almacenar el valor del rune directamente (no en el heap)
+        c.Mov(Register.X0, (int)value[0]); // Cargar el valor ASCII del carácter
+        c.Push(Register.X0); // Guardar el valor en la pila
+        c.PushObject(runeObject);
+
         return null;
     }
     // VisitAndOr
