@@ -14,7 +14,6 @@ public class StandardLibrary
             { "print_bool", new[] { "true_str", "false_str" } },
             { "print_rune", new[] { "rune_char" } },
             { "print_newline", new[] { "newline_char" } },
-            { "string_concat", new[] { "string_concat" } }
             
         };
 
@@ -25,11 +24,6 @@ public class StandardLibrary
                 UsedSymbols.Add(symbol);
             }
         }
-    }
-
-    public bool IsUsed(string function)
-    {
-        return UsedFunctions.Contains(function);
     }
     public string GetFunctionDefinitions()
     {
@@ -389,8 +383,7 @@ print_rune:
         ret
     "
     },
-    {
-    "concat_strings", @"
+    { "concat_strings", @"
 concat_strings:
     // Prologo: Guardar registros usados
     stp x29, x30, [sp, #-64]!  // Reservar 64 bytes (alineado a 16)
@@ -448,8 +441,7 @@ strlen:
     b 1b
 2:  mov x0, x1            // Devolver longitud
     ret"
-},
-
+    },
 };
 
     private readonly static Dictionary<string, string> Symbols = new Dictionary<string, string>

@@ -59,25 +59,25 @@ namespace server.Controllers
                 searchVisitor.Visit(tree);
 
                 var interpreter = new InterpreterVisitor();
-                // interpreter.Visit(tree);
+                interpreter.Visit(tree);
 
                 var compiler = new CompilerVisitor();
-                compiler.Visit(tree);
+                // compiler.Visit(tree);
 
-                // // Ejecutar declaraciones globales primero
-                // foreach (var stmt in searchVisitor.GlobalStatements)
-                // {
-                //     interpreter.Visit(stmt);
-                // }
+                // Ejecutar declaraciones globales primero
+                foreach (var stmt in searchVisitor.GlobalStatements)
+                {
+                    compiler.Visit(stmt);
+                }
 
-                // // Si existe la función main, ejecutar su bloque de sentencias
-                // if (searchVisitor.MainFunction != null)
-                // {
-                //     foreach (var stmt in searchVisitor.MainFunction.dcl())
-                //     {
-                //         interpreter.Visit(stmt);
-                //     }
-                // }
+                // Si existe la función main, ejecutar su bloque de sentencias
+                if (searchVisitor.MainFunction != null)
+                {
+                    foreach (var stmt in searchVisitor.MainFunction.dcl())
+                    {
+                        compiler.Visit(stmt);
+                    }
+                }
 
                 // Si no hay main, simplemente no se ejecuta nada
                 return Ok(new { result = compiler.c.ToString() });

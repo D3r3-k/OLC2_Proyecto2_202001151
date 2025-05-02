@@ -44,7 +44,6 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     public override Object? VisitVarDcl([NotNull] LanguageParser.VarDclContext context)
     {
         var varName = context.ID().GetText();
-        var type = context.type() != null;
         var value = context.expr() != null;
         // var numero int = 0;
         // numero := 0;
@@ -164,7 +163,6 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
         foreach (var dcl in context.dcl())
         {
-            // ! Aqui truena :(
             Visit(dcl);
         }
 
@@ -202,8 +200,6 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     public override Object? VisitPrintStmt([NotNull] LanguageParser.PrintStmtContext context)
     {
         c.Comment("Print Statement");
-        c.Comment("Visiting expressions");
-
         // Imprimir todos los argumentos
         foreach (var expr in context.expr())
         {
@@ -299,6 +295,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
         return null;
     }
+
     // VisitSwitchStmt
     public override Object? VisitSwitchStmt([NotNull] LanguageParser.SwitchStmtContext context)
     {
@@ -469,7 +466,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
         // 3. Calcular el valor del FP
         // Regresar el SP al inicio del Frame
-        c.Mov(Register.X0, stackElementSize * (baseOffset + callContext.args().expr().Length));
+        c.Mov(Register.X0, stackElementSize * (baseOffset + (callContext.args() != null ? callContext.args().expr().Length : 0)));
         c.Add(Register.SP, Register.SP, Register.X0); // Remove the bytes from the stack
 
         // Calcular la posicion donde se va a guardar el FP
@@ -782,9 +779,8 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     {
         var value = context.INT().GetText();
         c.Comment("Constante: " + value);
-
         var intObject = c.IntObject();
-        c.PushConstant(intObject, int.Parse(value)); // Push the integer value to the stack
+        c.PushConstant(intObject, int.Parse(value));
 
         return null;
     }
@@ -794,7 +790,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     {
         c.Comment("Nil Constante");
         var nilObject = c.NilObject();
-        c.PushConstant(nilObject, null); // Push the nil value to the stack
+        c.PushConstant(nilObject, null);
         return null;
     }
     // VisitFloat
@@ -872,21 +868,21 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             c.Comment("Assigning to variable: " + id);
             Visit(context.expr(1));
 
-            var valueObject = c.PopObject(Register.X0); // Pop the value to assign
+            var valueObject = c.PopObject(Register.X0);
 
             var (offset, varObj) = c.GetObject(id);
 
             if (insideFunction != null)
             {
                 c.Mov(Register.X1, varObj.Offset * 8);
-                c.Sub(Register.X1, Register.FP, Register.X1); // Calculate the address of the variable
-                c.Str(Register.X0, Register.X1); // Store the value in the variable
+                c.Sub(Register.X1, Register.FP, Register.X1);
+                c.Str(Register.X0, Register.X1);
                 return null;
             }
 
             c.Mov(Register.X1, offset);
-            c.Add(Register.X1, Register.SP, Register.X1); // Calculate the address of the variable
-            c.Str(Register.X0, Register.X1); // Store the value in the variable
+            c.Add(Register.X1, Register.SP, Register.X1);
+            c.Str(Register.X0, Register.X1);
 
             varObj.Type = valueObject.Type;
 
@@ -1021,10 +1017,8 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         var value = context.RUNE().GetText().Trim('\'');
         c.Comment("Rune Constante: " + value);
         var runeObject = c.RuneObject();
-
-        // Almacenar el valor del rune directamente (no en el heap)
-        c.Mov(Register.X0, (int)value[0]); // Cargar el valor ASCII del carácter
-        c.Push(Register.X0); // Guardar el valor en la pila
+        c.Mov(Register.X0, (int)value[0]);
+        c.Push(Register.X0);
         c.PushObject(runeObject);
 
         return null;
@@ -1074,7 +1068,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             c.Mov(Register.X0, 0);
             c.B(endLabel);
         }
-        else // ||
+        else if (op == "||")
         {
             c.B(endLabel);
             // Manejar caso donde primera condición fue verdadera
@@ -1096,6 +1090,83 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitAssignOp
     public override Object? VisitAssignOp([NotNull] LanguageParser.AssignOpContext context)
     {
+        var id = context.ID().GetText();
+        var operation = context.op.Text;
+        c.Comment($"Assign operation: {operation} to {id}");
+
+        // 1. Evaluar la expresión derecha
+        Visit(context.expr());
+
+        // 2. Obtener información de la variable
+        var (offset, varObj) = c.GetObject(id);
+        bool isVarFloat = varObj.Type == StackObject.StackObjectType.Float;
+
+        // 3. Determinar tipo del valor derecho
+        var rhsType = c.TopObject().Type;
+        bool isRhsFloat = rhsType == StackObject.StackObjectType.Float;
+
+        // 4. Pop del valor derecho
+        var rhs = isRhsFloat ? c.PopObject(Register.D0) : c.PopObject(Register.X1);
+
+        // 5. Calcular dirección de la variable (¡corregido!)
+        string addressReg = Register.X2;
+        if (insideFunction != null)
+        {
+            // Variable local: dirección = FP - (offset * 8)
+            c.Mov(addressReg, varObj.Offset * 8);
+            c.Sub(addressReg, Register.FP, addressReg);
+        }
+        else
+        {
+            c.Mov(addressReg, 0);
+            c.Add(addressReg, Register.SP, addressReg);
+        }
+
+        // 6. Cargar valor actual de la variable
+        if (isVarFloat)
+        {
+            c.Ldr(Register.D1, addressReg);
+        }
+        else
+        {
+            c.Ldr(Register.X0, addressReg);
+        }
+
+        // 7. Realizar operación
+        if (isVarFloat || isRhsFloat)
+        {
+            if (!isVarFloat) c.Scvtf(Register.D1, Register.X0);
+            if (!isRhsFloat) c.Scvtf(Register.D0, Register.X1);
+
+            if (operation == "+=")
+                c.Fadd(Register.D0, Register.D1, Register.D0);
+            else
+                c.Fsub(Register.D0, Register.D1, Register.D0);
+
+            c.Str(Register.D0, addressReg);
+        }
+        else
+        {
+            if (operation == "+=")
+                c.Add(Register.X0, Register.X0, Register.X1);
+            else
+                c.Sub(Register.X0, Register.X0, Register.X1);
+
+            c.Str(Register.X0, addressReg);
+        }
+
+        // 8. Push del resultado (opcional, pero necesario si se usa en expresiones)
+        if (isVarFloat)
+        {
+            c.Push(Register.D0);
+            c.PushObject(c.FloatObject());
+        }
+        else
+        {
+            c.Push(Register.X0);
+            c.PushObject(c.IntObject());
+        }
+
         return null;
     }
     // // VisitFuncCall

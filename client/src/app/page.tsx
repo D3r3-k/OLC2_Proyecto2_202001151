@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   ChevronDown,
   Play,
@@ -10,9 +10,9 @@ import {
   List,
   GitBranch,
   Database,
-  MoreHorizontal,
   TerminalSquare,
   TerminalIcon,
+  Clipboard,
 } from "lucide-react";
 import { LoadingToast } from "@/components/loading-toast";
 import { compileCode } from "@/services/compiler/compiler";
@@ -350,21 +350,39 @@ export default function Home() {
               <span className="font-medium">Salida</span>
             </div>
             {output.trim() !== "" && (
-              <button
-              onClick={() => {
-                const blob = new Blob([output], { type: "text/plain" });
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(blob);
-                link.download = "program.s";
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }}
-              className="flex items-center gap-2 p-2 rounded-md bg-gray-800 text-white hover:bg-gray-700 transition-colors"
-              >
-              <Save size={16} />
-              <span>Descargar MakeFile</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(output);
+                    setModalMessage({
+                      title: "Copiado",
+                      content: "Salida copiada al portapapeles",
+                      variant: "success",
+                    });
+                    setIsModalMessageOpen(true);
+                  }}
+                  className="flex items-center gap-2 p-2 rounded-md bg-gray-800 text-white hover:bg-gray-700 transition-colors"
+                >
+                  <Clipboard size={16} />
+                  <span>Copiar Portapapeles</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const blob = new Blob([output], { type: "text/plain" });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = "program.s";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  className="flex items-center gap-2 p-2 rounded-md bg-gray-800 text-white hover:bg-gray-700 transition-colors"
+                >
+                  <Save size={16} />
+                  <span>Descargar MakeFile</span>
+                </button>
+              </div>
             )}
           </div>
           <ReactCodeMirror
