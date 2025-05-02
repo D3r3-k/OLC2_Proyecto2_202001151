@@ -236,10 +236,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                 c.PrintNil();
             }
         }
-
-        // Agregar salto de línea al final
         c.PrintNewLine();
-
         return null;
     }
     // VisitExprStmt
@@ -535,15 +532,15 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
         // Determinar tipos
         var isRightDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
-        var right = c.PopObject(isRightDouble ? Register.D1 : Register.X1); // Pop right -> [left]
+        var right = c.PopObject(isRightDouble ? Register.D0 : Register.X1); // Pop right -> [left]
         var isLeftDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
-        var left = c.PopObject(isLeftDouble ? Register.D0 : Register.X0); // Pop left -> []
+        var left = c.PopObject(isLeftDouble ? Register.D1 : Register.X0); // Pop left -> []
 
         if (isLeftDouble || isRightDouble)
         {
             // Operación con flotantes
-            if (!isLeftDouble) c.Scvtf(Register.D0, Register.X0); // Convert left to double
-            if (!isRightDouble) c.Scvtf(Register.D1, Register.X1); // Convert right to double
+            if (!isLeftDouble) c.Scvtf(Register.D1, Register.X0); // Convert left to double
+            if (!isRightDouble) c.Scvtf(Register.D0, Register.X1); // Convert right to double
 
             switch (operation)
             {
@@ -551,7 +548,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                     c.Fmul(Register.D0, Register.D0, Register.D1);
                     break;
                 case "/":
-                    c.Fdiv(Register.D0, Register.D0, Register.D1);
+                    c.Fdiv(Register.D0, Register.D1, Register.D0);
                     break;
                 default:
                     throw new Exception($"Unsupported operation: {operation}");
@@ -587,59 +584,67 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         return null;
     }
     // VisitAddSub
-    public override Object? VisitAddSub([NotNull] LanguageParser.AddSubContext context)
+    public override object? VisitAddSub([NotNull] LanguageParser.AddSubContext context)
     {
         var operation = context.op.Text;
-        // 1 + 2
-        // Top -> []
-        c.Comment("Visit left operand");
-        Visit(context.expr(0)); // Visit 1; TOP -> [1]
-        c.Comment("Visit right operand");
-        Visit(context.expr(1)); // Visit 2; TOP -> [1, 2]
-        c.Comment("Pop operands");
+        Visit(context.expr(0)); // Left operand
+        Visit(context.expr(1)); // Right operand
+
+        // 1. Pop de operandos y verificación de tipos
         var isRightDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
-        var right = c.PopObject(isRightDouble ? Register.D0 : Register.X1); // Pop 2 -> [1]
+        var right = c.PopObject(isRightDouble ? Register.D0 : Register.X1); // Pop right (segundo operando)
         var isLeftDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
-        var left = c.PopObject(isLeftDouble ? Register.D1 : Register.X1); // Pop 1 -> []
+        var left = c.PopObject(isLeftDouble ? Register.D1 : Register.X0); // Pop left (primer operando)
 
-
-        if (isLeftDouble || isRightDouble)
+        // 2. Manejar concatenación de strings primero
+        if (operation == "+" &&
+            left.Type == StackObject.StackObjectType.String &&
+            right.Type == StackObject.StackObjectType.String)
         {
-            if (!isLeftDouble) c.Scvtf(Register.D1, Register.X1); // Convert to double
-            if (!isRightDouble) c.Scvtf(Register.D0, Register.X0); // Convert to double
+            //=============================================================
+            // CONCATENACIÓN DE STRINGS (Código preservado del usuario)
+            //=============================================================
+            c.Comment("|===============[Concatenando]==================|");
+            c._stdLib.Use("concat_strings");
 
-            if (operation == "+")
-            {
-                c.Fadd(Register.D0, Register.D0, Register.D1); // D1 = 1.0 + 2.0
-            }
-            else if (operation == "-")
-            {
-                c.Fsub(Register.D0, Register.D1, Register.D0); // D1 = 1.0 - 2.0
-            }
-            c.Comment("Push result");
-            c.Push(Register.D0); // Push result -> [result]
-            c.PushObject(c.CloneObject(
-                isLeftDouble ? left : right
-            ));
-
-
+            // Los pops ya se hicieron, invertir orden para concatenación correcta
+            c.Push(Register.X0); // left (primer string)
+            c.Push(Register.X1); // right (segundo string)
+            c.Bl("concat_strings");
+            c.Add(Register.SP, Register.SP, 16); // Limpiar args de la pila
+            c.Push(Register.X0); // Push resultado
+            c.PushObject(c.StringObject());
             return null;
         }
 
-        // Aqui ya se puede verificar el tipo de left y right
-
-        if (operation == "+")
+        //=============================================================
+        // LÓGICA PARA NÚMEROS (Enteros y Flotantes)
+        //=============================================================
+        if (isLeftDouble || isRightDouble)
         {
-            c.Add(Register.X0, Register.X0, Register.X1); // X0 = 1 + 2
-        }
-        else if (operation == "-")
-        {
-            c.Sub(Register.X0, Register.X1, Register.X0); // X0 = 1 - 2
-        }
+            // Convertir operandos a double si es necesario
+            if (!isLeftDouble) c.Scvtf(Register.D1, Register.X0); // Entero -> Double
+            if (!isRightDouble) c.Scvtf(Register.D0, Register.X1);
 
-        c.Comment("Push result");
-        c.Push(Register.X0); // Push result -> [result]
-        c.PushObject(c.CloneObject(left));
+            // Realizar operación
+            if (operation == "+")
+                c.Fadd(Register.D0, Register.D1, Register.D0); // D0 = D1 + D0
+            else
+                c.Fsub(Register.D0, Register.D1, Register.D0); // D0 = D1 - D0
+
+            c.Push(Register.D0);
+            c.PushObject(c.FloatObject());
+        }
+        else // Ambos son enteros
+        {
+            if (operation == "+")
+                c.Add(Register.X0, Register.X0, Register.X1); // X0 = X0 + X1
+            else
+                c.Sub(Register.X0, Register.X0, Register.X1); // X0 = X0 - X1
+
+            c.Push(Register.X0);
+            c.PushObject(c.IntObject());
+        }
 
         return null;
     }
@@ -997,7 +1002,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             throw new SemanticError("Tipos no comparables", context.Start);
         }
         c.Push(Register.X0);
-        c.PushObject(c.BoolObject());
+        c.PushObject(c.BoolObject()); // Push boolean result
         return null;
     }
     // VisitBoolean

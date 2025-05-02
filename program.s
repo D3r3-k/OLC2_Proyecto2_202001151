@@ -1421,20 +1421,16 @@ CBZ x0, L12_
 // Block Statement
 // Expression Statement
 // Assigning to variable: puntosDeclaracion
-// Visit left operand
 MOV x0, #40
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #40
@@ -2482,20 +2478,16 @@ CBZ x0, L23_
 // Block Statement
 // Expression Statement
 // Assigning to variable: puntosDeclaracion
-// Visit left operand
 MOV x0, #72
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #72
@@ -3662,20 +3654,16 @@ CBZ x0, L34_
 // Block Statement
 // Expression Statement
 // Assigning to variable: puntosDeclaracion
-// Visit left operand
 MOV x0, #104
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #104
@@ -5058,20 +5046,16 @@ CBZ x0, L45_
 // Block Statement
 // Expression Statement
 // Assigning to variable: puntosAsignacion
-// Visit left operand
 MOV x0, #0
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #0
@@ -5575,20 +5559,16 @@ BL print_string
 BL print_newline
 // Expression Statement
 // Assigning to variable: entero
-// Visit left operand
 MOV x0, #104
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #104
@@ -5608,8 +5588,8 @@ STR x0, [SP, #-8]!
 MOV x0, #2
 STR x0, [SP, #-8]!
 LDR x1, [SP], #8
-LDR d0, [SP], #8
-SCVTF d1, x1
+LDR d1, [SP], #8
+SCVTF d0, x1
 FMUL d0, d0, d1
 STR d0, [SP, #-8]!
 LDR x0, [SP], #8
@@ -5621,12 +5601,10 @@ STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 // Expression Statement
 // Assigning to variable: texto
-// Visit left operand
 MOV x0, #88
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // String Constante: !
 STR x10, [SP, #-8]!
 // Pushing byte 33 to heap
@@ -5639,11 +5617,13 @@ MOV w0, #0
 STRB w0, [x10]
 MOV x0, #1
 ADD x10, x10, x0
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
-ADD x0, x0, x1
-// Push result
+LDR x0, [SP], #8
+// |===============[Concatenando]==================|
+STR x0, [SP, #-8]!
+STR x1, [SP, #-8]!
+BL concat_strings
+ADD sp, sp, #16
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #88
@@ -6041,20 +6021,16 @@ CBZ x0, L56_
 // Block Statement
 // Expression Statement
 // Assigning to variable: puntosAsignacion
-// Visit left operand
 MOV x0, #0
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #0
@@ -6668,20 +6644,16 @@ BL print_string
 BL print_newline
 // Expression Statement
 // Assigning to variable: puntosAsignacion
-// Visit left operand
 MOV x0, #0
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #0
@@ -7148,22 +7120,17 @@ LDR x0, [SP], #8
 MOV X0, x0
 BL print_string
 BL print_newline
-// Visit left operand
 // Constante: 10
 MOV x0, #10
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 5
 MOV x0, #5
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 // Variable declaration: resultadoSuma1
-// Visit left operand
 // Constante: 10.5
 MOVZ X0,  #0, LSL #0
 MOVK X0, #0, LSL #16
@@ -7171,7 +7138,6 @@ MOVK X0, #0, LSL #32
 MOVK X0, #16421, LSL #48
 FMOV D0, X0
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 5.5
 MOVZ X0,  #0, LSL #0
 MOVK X0, #0, LSL #16
@@ -7179,18 +7145,14 @@ MOVK X0, #0, LSL #32
 MOVK X0, #16406, LSL #48
 FMOV D0, X0
 STR x0, [SP, #-8]!
-// Pop operands
 LDR d0, [SP], #8
 LDR d1, [SP], #8
-FADD d0, d0, d1
-// Push result
+FADD d0, d1, d0
 STR d0, [SP, #-8]!
 // Variable declaration: resultadoSuma2
-// Visit left operand
 // Constante: 10
 MOV x0, #10
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 5.5
 MOVZ X0,  #0, LSL #0
 MOVK X0, #0, LSL #16
@@ -7198,15 +7160,12 @@ MOVK X0, #0, LSL #32
 MOVK X0, #16406, LSL #48
 FMOV D0, X0
 STR x0, [SP, #-8]!
-// Pop operands
 LDR d0, [SP], #8
-LDR x1, [SP], #8
-SCVTF d1, x1
-FADD d0, d0, d1
-// Push result
+LDR x0, [SP], #8
+SCVTF d1, x0
+FADD d0, d1, d0
 STR d0, [SP, #-8]!
 // Variable declaration: resultadoSuma3
-// Visit left operand
 // Constante: 10.5
 MOVZ X0,  #0, LSL #0
 MOVK X0, #0, LSL #16
@@ -7214,16 +7173,13 @@ MOVK X0, #0, LSL #32
 MOVK X0, #16421, LSL #48
 FMOV D0, X0
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 5
 MOV x0, #5
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
 LDR d1, [SP], #8
-SCVTF d0, x0
-FADD d0, d0, d1
-// Push result
+SCVTF d0, x1
+FADD d0, d1, d0
 STR d0, [SP, #-8]!
 // Variable declaration: resultadoSuma4
 // Print Statement
@@ -7615,20 +7571,16 @@ CBZ x0, L67_
 // Block Statement
 // Expression Statement
 // Assigning to variable: puntosOperacionesAritmeticas
-// Visit left operand
 MOV x0, #32
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #32
@@ -7957,8 +7909,8 @@ MOVK X0, #0, LSL #32
 MOVK X0, #16384, LSL #48
 FMOV D0, X0
 STR x0, [SP, #-8]!
-LDR d1, [SP], #8
 LDR d0, [SP], #8
+LDR d1, [SP], #8
 FMUL d0, d0, d1
 STR d0, [SP, #-8]!
 // Variable declaration: resultadoMult2
@@ -7973,9 +7925,9 @@ MOVK X0, #0, LSL #32
 MOVK X0, #16388, LSL #48
 FMOV D0, X0
 STR x0, [SP, #-8]!
-LDR d1, [SP], #8
+LDR d0, [SP], #8
 LDR x0, [SP], #8
-SCVTF d0, x0
+SCVTF d1, x0
 FMUL d0, d0, d1
 STR d0, [SP, #-8]!
 // Variable declaration: resultadoMult3
@@ -7991,8 +7943,8 @@ STR x0, [SP, #-8]!
 MOV x0, #2
 STR x0, [SP, #-8]!
 LDR x1, [SP], #8
-LDR d0, [SP], #8
-SCVTF d1, x1
+LDR d1, [SP], #8
+SCVTF d0, x1
 FMUL d0, d0, d1
 STR d0, [SP, #-8]!
 // Variable declaration: resultadoMult4
@@ -8365,20 +8317,16 @@ CBZ x0, L78_
 // Block Statement
 // Expression Statement
 // Assigning to variable: puntosOperacionesAritmeticas
-// Visit left operand
 MOV x0, #64
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #64
@@ -8787,9 +8735,9 @@ MOVK X0, #0, LSL #32
 MOVK X0, #16400, LSL #48
 FMOV D0, X0
 STR x0, [SP, #-8]!
-LDR d1, [SP], #8
 LDR d0, [SP], #8
-FDIV d0, d0, d1
+LDR d1, [SP], #8
+FDIV d0, d1, d0
 STR d0, [SP, #-8]!
 // Variable declaration: resultadoDiv2
 // / operation
@@ -8803,10 +8751,10 @@ MOVK X0, #0, LSL #32
 MOVK X0, #16400, LSL #48
 FMOV D0, X0
 STR x0, [SP, #-8]!
-LDR d1, [SP], #8
+LDR d0, [SP], #8
 LDR x0, [SP], #8
-SCVTF d0, x0
-FDIV d0, d0, d1
+SCVTF d1, x0
+FDIV d0, d1, d0
 STR d0, [SP, #-8]!
 // Variable declaration: resultadoDiv3
 // / operation
@@ -8821,9 +8769,9 @@ STR x0, [SP, #-8]!
 MOV x0, #4
 STR x0, [SP, #-8]!
 LDR x1, [SP], #8
-LDR d0, [SP], #8
-SCVTF d1, x1
-FDIV d0, d0, d1
+LDR d1, [SP], #8
+SCVTF d0, x1
+FDIV d0, d1, d0
 STR d0, [SP, #-8]!
 // Variable declaration: resultadoDiv4
 // Print Statement
@@ -9215,20 +9163,16 @@ CBZ x0, L89_
 // Block Statement
 // Expression Statement
 // Assigning to variable: puntosOperacionesAritmeticas
-// Visit left operand
 MOV x0, #96
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #96
@@ -10599,20 +10543,16 @@ CBZ x0, L106_
 // Block Statement
 // Expression Statement
 // Assigning to variable: puntosOperacionesRelacionales
-// Visit left operand
 MOV x0, #48
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #48
@@ -11362,20 +11302,16 @@ CBZ x0, L117_
 // Block Statement
 // Expression Statement
 // Assigning to variable: puntosOperacionesRelacionales
-// Visit left operand
 MOV x0, #80
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #80
@@ -12265,20 +12201,16 @@ CBZ x0, L128_
 // Block Statement
 // Expression Statement
 // Assigning to variable: puntosOperacionesRelacionales
-// Visit left operand
 MOV x0, #112
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #112
@@ -13591,20 +13523,16 @@ CBZ x0, L151_
 // Block Statement
 // Expression Statement
 // Assigning to variable: puntosOperacionesLogicas
-// Visit left operand
 MOV x0, #32
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #32
@@ -14510,20 +14438,16 @@ CBZ x0, L174_
 // Block Statement
 // Expression Statement
 // Assigning to variable: puntosOperacionesLogicas
-// Visit left operand
 MOV x0, #64
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #64
@@ -15166,20 +15090,16 @@ CBZ x0, L185_
 // Block Statement
 // Expression Statement
 // Assigning to variable: puntosOperacionesLogicas
-// Visit left operand
 MOV x0, #96
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #96
@@ -15883,20 +15803,16 @@ BL print_string
 BL print_newline
 // Expression Statement
 // Assigning to variable: puntosPrintln
-// Visit left operand
 MOV x0, #0
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #0
@@ -16510,20 +16426,16 @@ BL print_string
 BL print_newline
 // Expression Statement
 // Assigning to variable: puntosPrintln
-// Visit left operand
 MOV x0, #0
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #0
@@ -16945,19 +16857,15 @@ ADD x10, x10, x0
 LDR x0, [SP], #8
 MOV X0, x0
 BL print_string
-// Visit left operand
 // Constante: 10
 MOV x0, #10
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 5
 MOV x0, #5
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV X0, x0
@@ -17134,20 +17042,16 @@ BL print_bool
 BL print_newline
 // Expression Statement
 // Assigning to variable: puntosPrintln
-// Visit left operand
 MOV x0, #0
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #0
@@ -18216,20 +18120,16 @@ CBZ x0, L199_
 // Block Statement
 // Expression Statement
 // Assigning to variable: puntosValorNulo
-// Visit left operand
 MOV x0, #32
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #32
@@ -18703,20 +18603,16 @@ BL print_string
 BL print_newline
 // Expression Statement
 // Assigning to variable: puntosValorNulo
-// Visit left operand
 MOV x0, #32
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 // Constante: 1
 MOV x0, #1
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #32
@@ -18900,81 +18796,57 @@ BL print_string
 BL print_newline
 // Expression Statement
 // Assigning to variable: puntos
-// Visit left operand
-// Visit left operand
-// Visit left operand
-// Visit left operand
-// Visit left operand
-// Visit left operand
 MOV x0, #488
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Visit right operand
 MOV x0, #384
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
-// Visit right operand
 MOV x0, #376
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
-// Visit right operand
 MOV x0, #272
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
-// Visit right operand
 MOV x0, #152
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
-// Visit right operand
 MOV x0, #48
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
-// Visit right operand
 MOV x0, #40
 ADD x0, sp, x0
 LDR x0, [x0, #0]
 STR x0, [SP, #-8]!
-// Pop operands
 LDR x1, [SP], #8
-LDR x1, [SP], #8
+LDR x0, [SP], #8
 ADD x0, x0, x1
-// Push result
 STR x0, [SP, #-8]!
 LDR x0, [SP], #8
 MOV x1, #496
@@ -22599,6 +22471,64 @@ compare_end:
     ldp x29, x30, [sp], #16
     ret
 
+
+concat_strings:
+    // Prologo: Guardar registros usados
+    stp x29, x30, [sp, #-64]!  // Reservar 64 bytes (alineado a 16)
+    stp x19, x20, [sp, #16]    // Guardar x19 (str1), x20 (str2)
+    str x21, [sp, #32]         // Guardar x21 (HP backup)
+
+    // Cargar parámetros
+    mov x19, x0           // x19 = str1
+    mov x20, x1           // x20 = str2
+
+    // Calcular longitud de str1
+    mov x0, x19
+    bl  strlen            // x0 = len(str1)
+    mov x21, x0           // x21 = len(str1)
+
+    // Calcular longitud de str2
+    mov x0, x20
+    bl  strlen            // x0 = len(str2)
+
+    // Calcular espacio total: len1 + len2 + 1 (para null terminator)
+    add x2, x21, x0       // x2 = len1 + len2
+    add x2, x2, #1        // x2 += 1
+
+    // Reservar espacio en heap (x10 = HP)
+    mov x0, x10           // x0 = dirección inicial del nuevo string
+    add x10, x10, x2      // Actualizar HP (x10 += total_len)
+
+    // Copiar str1 al nuevo espacio
+    mov x3, x0            // x3 = destino actual
+    mov x4, x19           // x4 = origen (str1)
+copy_str1:
+    ldrb w5, [x4], #1     // Cargar byte de str1
+    strb w5, [x3], #1     // Almacenar en nuevo string
+    cbnz w5, copy_str1    // Continuar hasta null terminator
+
+    // Copiar str2 (sobrescribe el null de str1)
+    sub x3, x3, #1        // Retroceder 1 byte (posición del null)
+    mov x4, x20           // x4 = origen (str2)
+copy_str2:
+    ldrb w5, [x4], #1     // Cargar byte de str2
+    strb w5, [x3], #1     // Almacenar en nuevo string
+    cbnz w5, copy_str2    // Continuar hasta null terminator
+
+    // Epílogo: Restaurar registros y retornar
+    ldr x21, [sp, #32]    // Restaurar x21 (no usado)
+    ldp x19, x20, [sp, #16]
+    ldp x29, x30, [sp], #64
+    ret
+
+strlen:
+    mov x1, #0            // Contador de longitud
+1:  ldrb w2, [x0], #1     // Cargar byte
+    cbz w2, 2f            // Terminar si es null
+    add x1, x1, #1        // Incrementar contador
+    b 1b
+2:  mov x0, x1            // Devolver longitud
+    ret
 newline_char: .ascii "\n"
 minus_sign: .ascii "-"
 dot_char: .ascii "."

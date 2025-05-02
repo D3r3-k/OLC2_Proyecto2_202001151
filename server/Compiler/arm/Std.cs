@@ -14,6 +14,8 @@ public class StandardLibrary
             { "print_bool", new[] { "true_str", "false_str" } },
             { "print_rune", new[] { "rune_char" } },
             { "print_newline", new[] { "newline_char" } },
+            { "string_concat", new[] { "string_concat" } }
+            
         };
 
         if (symbolMappings.TryGetValue(function, out var symbols))
@@ -353,7 +355,7 @@ compare_end:
     ldp x29, x30, [sp], #16
     ret
 "
-},
+    },
     { "print_rune", @"
 //--------------------------------------------------------------
 // print_rune - Prints a rune from its ASCII value (not address)
@@ -387,6 +389,66 @@ print_rune:
         ret
     "
     },
+    {
+    "concat_strings", @"
+concat_strings:
+    // Prologo: Guardar registros usados
+    stp x29, x30, [sp, #-64]!  // Reservar 64 bytes (alineado a 16)
+    stp x19, x20, [sp, #16]    // Guardar x19 (str1), x20 (str2)
+    str x21, [sp, #32]         // Guardar x21 (HP backup)
+
+    // Cargar parámetros
+    mov x19, x0           // x19 = str1
+    mov x20, x1           // x20 = str2
+
+    // Calcular longitud de str1
+    mov x0, x19
+    bl  strlen            // x0 = len(str1)
+    mov x21, x0           // x21 = len(str1)
+
+    // Calcular longitud de str2
+    mov x0, x20
+    bl  strlen            // x0 = len(str2)
+
+    // Calcular espacio total: len1 + len2 + 1 (para null terminator)
+    add x2, x21, x0       // x2 = len1 + len2
+    add x2, x2, #1        // x2 += 1
+
+    // Reservar espacio en heap (x10 = HP)
+    mov x0, x10           // x0 = dirección inicial del nuevo string
+    add x10, x10, x2      // Actualizar HP (x10 += total_len)
+
+    // Copiar str1 al nuevo espacio
+    mov x3, x0            // x3 = destino actual
+    mov x4, x19           // x4 = origen (str1)
+copy_str1:
+    ldrb w5, [x4], #1     // Cargar byte de str1
+    strb w5, [x3], #1     // Almacenar en nuevo string
+    cbnz w5, copy_str1    // Continuar hasta null terminator
+
+    // Copiar str2 (sobrescribe el null de str1)
+    sub x3, x3, #1        // Retroceder 1 byte (posición del null)
+    mov x4, x20           // x4 = origen (str2)
+copy_str2:
+    ldrb w5, [x4], #1     // Cargar byte de str2
+    strb w5, [x3], #1     // Almacenar en nuevo string
+    cbnz w5, copy_str2    // Continuar hasta null terminator
+
+    // Epílogo: Restaurar registros y retornar
+    ldr x21, [sp, #32]    // Restaurar x21 (no usado)
+    ldp x19, x20, [sp, #16]
+    ldp x29, x30, [sp], #64
+    ret
+
+strlen:
+    mov x1, #0            // Contador de longitud
+1:  ldrb w2, [x0], #1     // Cargar byte
+    cbz w2, 2f            // Terminar si es null
+    add x1, x1, #1        // Incrementar contador
+    b 1b
+2:  mov x0, x1            // Devolver longitud
+    ret"
+},
 
 };
 
@@ -401,7 +463,8 @@ print_rune:
         { "false_str_len", @".equ false_str_len, . - false_str" },
         { "string_compare", @"string_compare: .ascii ""string_compare""" },
         { "rune_char", @"rune_char: .ascii ""r""" },
-        { "newline_char", @"newline_char: .ascii ""\n""" }
+        { "newline_char", @"newline_char: .ascii ""\n""" },
+        { "concat_strings", @"concat_strings: .asciz ""concat_strings""" }
     };
 
 }

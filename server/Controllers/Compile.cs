@@ -59,7 +59,7 @@ namespace server.Controllers
                 searchVisitor.Visit(tree);
 
                 var interpreter = new InterpreterVisitor();
-                interpreter.Visit(tree);
+                // interpreter.Visit(tree);
 
                 var compiler = new CompilerVisitor();
                 compiler.Visit(tree);

@@ -542,6 +542,39 @@ public class ArmGenerator
         _instructions.Add($"BL print_string");
     }
 
+    public void ConcatStrings()
+    {
+        _stdLib.Use("concat_strings");
+
+        // Paso 1: Pop de ambos strings en orden inverso
+        // (Primero el segundo string, luego el primero)
+        PopObject(Register.X1); // Segundo string -> X1
+        PopObject(Register.X0); // Primer string -> X0
+
+        // Paso 2: Preservar registros críticos
+        Comment("Preservando HP (X10) y LR");
+        Push(Register.HP); // Guardar HP actual
+        Push(Register.LR);  // Guardar Link Register
+
+        // Paso 3: Llamar a la función de concatenación
+        Bl("concat_strings");
+
+        // Paso 4: Restaurar registros
+        Comment("Restaurando registros");
+        Pop(Register.LR);   // Restaurar LR
+        Pop(Register.HP);  // Restaurar HP
+
+        // Paso 5: Push del resultado
+        Push(Register.X0); // Dirección del nuevo string
+        PushObject(new StackObject
+        {
+            Type = StackObject.StackObjectType.String,
+            Length = 8,
+            Depth = _depth,
+            Id = null
+        });
+    }
+
     public void PrintBool(string rs)
     {
         _stdLib.Use("print_bool");
