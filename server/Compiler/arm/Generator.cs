@@ -1,5 +1,3 @@
-
-using System.Net.NetworkInformation;
 using System.Text;
 
 public class StackObject
@@ -565,10 +563,13 @@ public class ArmGenerator
             sb.AppendLine(instruction);
         }
 
-        sb.AppendLine("\n\n\n // Foreign Functions");
+        if (_funcInstructions.Count > 0)
+            sb.AppendLine("\n\n\n // Function Definitions");
         _funcInstructions.ForEach(i => sb.AppendLine(i));
 
-        sb.AppendLine("\n\n\n // Standard Library");
+        if (_instructions.Count > 0)
+            sb.AppendLine("\n\n\n // Standard Library");
+
         sb.AppendLine(_stdLib.GetFunctionDefinitions());
 
         return sb.ToString();

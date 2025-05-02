@@ -28,6 +28,7 @@ import { fetchErrors } from "@/services/reports/errors";
 import { AlertModalButton } from "@/components/alert-modal-button";
 import { fetchAST } from "@/services/reports/ast";
 import { AlertModalSvg } from "@/components/alert-modal-svg";
+import { useToast } from "@/components/toast";
 
 export default function Home() {
   // TODO: Modal
@@ -47,6 +48,7 @@ export default function Home() {
   const [isModalTableOpen, setIsModalTableOpen] = useState(false);
   const [isModalMessageBtnOpen, setIsModalMessageBtnOpen] = useState(false);
   const [isModalSvgOpen, setIsModalSvgOpen] = useState(false);
+  const { showToast } = useToast();
   // TODO: Sidebar
   const [archivoOpen, setArchivoOpen] = useState(true);
   const [reporteOpen, setReporteOpen] = useState(true);
@@ -354,12 +356,7 @@ export default function Home() {
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(output);
-                    setModalMessage({
-                      title: "Copiado",
-                      content: "Salida copiada al portapapeles",
-                      variant: "success",
-                    });
-                    setIsModalMessageOpen(true);
+                    showToast("Copiado al portapapeles");
                   }}
                   className="flex items-center gap-2 p-2 rounded-md bg-gray-800 text-white hover:bg-gray-700 transition-colors"
                 >

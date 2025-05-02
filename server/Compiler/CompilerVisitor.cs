@@ -299,6 +299,51 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitSwitchStmt
     public override Object? VisitSwitchStmt([NotNull] LanguageParser.SwitchStmtContext context)
     {
+        c.Comment("Switch Statement");
+
+        // Guardar etiquetas anteriores
+        var prevBreakLabel = breakLabel;
+        breakLabel = c.GetLabel("SWITCH_END");
+
+        // Evaluar expresión del switch y GUARDAR en X19
+        Visit(context.expr());
+        c.PopObject(Register.X19); // X19 = valor de x
+
+        string endLabel = breakLabel;
+        string defaultLabel = context.switchDefault() != null ? c.GetLabel("SWITCH_DEFAULT") : null;
+
+        foreach (var caseCtx in context.switchCase())
+        {
+            string caseLabel = c.GetLabel("CASE");
+            string nextCaseLabel = c.GetLabel("NEXT_CASE");
+
+            // Evaluar valor del caso en X1 (sin tocar X19)
+            Visit(caseCtx.expr());
+            c.PopObject(Register.X1); // X1 = valor del caso
+
+            // Comparar X19 (x) con X1 (caso)
+            c.Cmp(Register.X19, Register.X1);
+            c.Beq(caseLabel);
+            c.B(nextCaseLabel);
+
+            c.SetLabel(caseLabel);
+            foreach (var stmt in caseCtx.stmt()) Visit(stmt);
+            c.B(endLabel);
+
+            c.SetLabel(nextCaseLabel);
+        }
+
+        // Manejar default
+        if (context.switchDefault() != null)
+        {
+            c.B(defaultLabel);
+            c.SetLabel(defaultLabel);
+            foreach (var stmt in context.switchDefault().stmt()) Visit(stmt);
+            c.B(endLabel);
+        }
+
+        c.SetLabel(endLabel);
+        breakLabel = prevBreakLabel;
         return null;
     }
     // VisitForStmt
