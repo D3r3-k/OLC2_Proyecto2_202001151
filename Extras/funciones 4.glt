@@ -1,0 +1,89 @@
+func main() {
+	puntos := 0
+
+	
+	// // 4. strconv.Atoi (2 punto)
+	// fmt.Println("\n==== strconv.Atoi ====")
+	// puntosAtoi := 0
+
+	// fmt.Println("Conversión de string a int:")
+	// numeroEntero := strconv.Atoi("123")
+	// fmt.Println("\"123\" convertido a int:", numeroEntero)
+
+	// if numeroEntero == 123 {
+	// 	puntosAtoi = puntosAtoi + 2
+	// 	fmt.Println("OK strconv.Atoi: correcto")
+	// } else {
+	// 	fmt.Println("X strconv.Atoi: incorrecto")
+	// }
+
+	// // 5. strconv.ParseFloat (2 punto)
+	// fmt.Println("\n==== strconv.ParseFloat ====")
+	// puntosParseFloat := 0
+
+	// fmt.Println("Conversión de string a float64:")
+	// numeroDecimal1 := strconv.ParseFloat("123.45")
+	// fmt.Println("\"123.45\" convertido a float64:", numeroDecimal1)
+
+	// // Convertir un número entero a float (debe funcionar)
+	// numeroDecimal2 := strconv.ParseFloat("123")
+	// fmt.Println("\"123\" convertido a float64:", numeroDecimal2)
+
+	// if numeroDecimal1 == 123.45 && numeroDecimal2 == 123.0 {
+	// 	puntosParseFloat = puntosParseFloat + 2
+	// 	fmt.Println("OK strconv.ParseFloat: correcto")
+	// } else {
+	// 	fmt.Println("X strconv.ParseFloat: incorrecto")
+	// }
+
+	// // 6. reflect.TypeOf (1 punto)
+	// fmt.Println("\n==== reflect.TypeOf ====")
+	// puntosTypeOf := 0
+
+	// fmt.Println("Obtener tipo de datos:")
+
+	// // Tipo int
+	// entero := 42
+	// tipoEntero := reflect.TypeOf(entero)
+	// fmt.Println("Tipo de 42:", tipoEntero)
+
+	// // Tipo float64
+	// decimal := 3.14159
+	// tipoDecimal := reflect.TypeOf(decimal)
+	// fmt.Println("Tipo de 3.14159:", tipoDecimal)
+
+	// // Tipo string
+	// texto := "Hola, mundo!"
+	// tipoTexto := reflect.TypeOf(texto)
+	// fmt.Println("Tipo de \"Hola, mundo!\":", tipoTexto)
+
+	// // Tipo bool
+	// booleano := true
+	// tipoBooleano := reflect.TypeOf(booleano)
+	// fmt.Println("Tipo de true:", tipoBooleano)
+
+	// // Tipo slice
+	// slice := []int{1, 2, 3}
+	// tipoSlice := reflect.TypeOf(slice)
+	// fmt.Println("Tipo de []int{1, 2, 3}:", tipoSlice)
+
+	// if tipoEntero == "int" && tipoDecimal == "float64" &&
+	// 	tipoTexto == "string" && tipoBooleano == "bool" &&
+	// 	tipoSlice == "[]int" {
+	// 	puntosTypeOf = puntosTypeOf + 1
+	// 	fmt.Println("OK reflect.TypeOf: correcto")
+	// } else {
+	// 	fmt.Println("X reflect.TypeOf: incorrecto")
+	// }
+
+	// Resumen de puntos
+	puntos = 0
+
+	fmt.Println("\n=== Tabla de Resultados ===")
+	fmt.Println("+----------------------------------+--------+-------+")
+	fmt.Println("| Característica                   | Puntos | Total |")
+	fmt.Println("+----------------------------------+--------+-------+")
+	fmt.Println("+----------------------------------+--------+-------+")
+	fmt.Println("| TOTAL                            | ", puntos, "   | 5    |")
+	fmt.Println("+----------------------------------+--------+-------+")
+}

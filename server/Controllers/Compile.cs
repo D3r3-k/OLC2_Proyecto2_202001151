@@ -59,7 +59,7 @@ namespace server.Controllers
                 searchVisitor.Visit(tree);
 
                 var interpreter = new InterpreterVisitor();
-                interpreter.Visit(tree);
+                //interpreter.Visit(tree);
 
                 var compiler = new CompilerVisitor();
                 // compiler.Visit(tree);
@@ -67,6 +67,7 @@ namespace server.Controllers
                 // Ejecutar declaraciones globales primero
                 foreach (var stmt in searchVisitor.GlobalStatements)
                 {
+                    interpreter.Visit(stmt);
                     compiler.Visit(stmt);
                 }
 
@@ -75,6 +76,7 @@ namespace server.Controllers
                 {
                     foreach (var stmt in searchVisitor.MainFunction.dcl())
                     {
+                        interpreter.Visit(stmt);
                         compiler.Visit(stmt);
                     }
                 }

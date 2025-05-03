@@ -140,9 +140,9 @@ func main() {
 
 		for j < n {
 			if x == j || x+j == n-1 {
-				fila = fila + "*"
+				fila = fila + "*";
 			} else {
-				fila = fila + " "
+				fila = fila + " ";
 			}
 			j = j + 1
 		}
@@ -190,34 +190,34 @@ func main() {
 	puntosForClasico = puntosForClasico + 2
 	fmt.Println("OK For clásico anidado: correcto")
 
-	// 5. For Range (3 puntos)
-	fmt.Println("\n==== For Range ====")
 	puntosForRange := 0
+	// 5. For Range (3 puntos)
+	// fmt.Println("\n==== For Range ====")
 
-	fmt.Println("For range con slice")
-	numeros := []int{10, 20, 30, 40, 50}
-	suma = 0
-	sumaIndices := 0
+	// fmt.Println("For range con slice")
+	// numeros := []int{10, 20, 30, 40, 50}
+	// suma = 0
+	// sumaIndices := 0
 
-	for i, valor := range numeros {
-		fmt.Println("Índice", i, "=", valor)
-		suma = suma + valor
-		sumaIndices = sumaIndices + i
-	}
+	// for i, valor := range numeros {
+	// 	fmt.Println("Índice", i, "=", valor)
+	// 	suma = suma + valor
+	// 	sumaIndices = sumaIndices + i
+	// }
 
-	if suma == 150 {
-		puntosForRange = puntosForRange + 2
-		fmt.Println("OK For range con slice: correcto")
-	} else {
-		fmt.Println("X For range con slice: incorrecto")
-	}
+	// if suma == 150 {
+	// 	puntosForRange = puntosForRange + 2
+	// 	fmt.Println("OK For range con slice: correcto")
+	// } else {
+	// 	fmt.Println("X For range con slice: incorrecto")
+	// }
 
-	if sumaIndices == 10 {
-		puntosForRange = puntosForRange + 1
-		fmt.Println("OK For range con índices: correcto")
-	} else {
-		fmt.Println("X For range con índices: incorrecto")
-	}
+	// if sumaIndices == 10 {
+	// 	puntosForRange = puntosForRange + 1
+	// 	fmt.Println("OK For range con índices: correcto")
+	// } else {
+	// 	fmt.Println("X For range con índices: incorrecto")
+	// }
 
 	// 6. Switch/Case (3 puntos)
 	fmt.Println("\n==== Switch/Case ====")

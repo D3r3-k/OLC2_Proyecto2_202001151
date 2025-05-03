@@ -1,0 +1,45 @@
+// Función sin parámetros que no retorna nada
+func saludar() {
+	fmt.Println("¡Hola, mundo!")
+}
+// Función sin parámetros que retorna un valor
+func obtenerNumero() int {
+	return 42
+}
+
+func main() {
+	puntos := 0
+
+	fmt.Println("=== Archivo de prueba de funciones ===")
+
+	// 1. Funciones no recursivas sin parámetros (5 punto)
+	fmt.Println("==== Funciones no recursivas sin parámetros ====")
+	puntosFuncionesSimples := 0
+
+	fmt.Println("Función sin retorno:")
+	fmt.Println("\n\n###Validacion Manual")
+	saludar()
+
+	fmt.Println("\nFunción con retorno:")
+	numero := obtenerNumero()
+	fmt.Println("El número obtenido es:", numero)
+
+	if numero == 42 {
+		puntosFuncionesSimples = puntosFuncionesSimples + 5
+		fmt.Println("OK Funciones no recursivas sin parámetros: correcto")
+	} else {
+		fmt.Println("X Funciones no recursivas sin parámetros: incorrecto")
+	}
+
+	// Resumen de puntos
+	puntos = puntosFuncionesSimples
+
+	fmt.Println("\n=== Tabla de Resultados ===")
+	fmt.Println("+----------------------------------+--------+-------+")
+	fmt.Println("| Característica                   | Puntos | Total |")
+	fmt.Println("+----------------------------------+--------+-------+")
+	fmt.Println("| Funciones sin parámetros         | ", puntosFuncionesSimples, "    | 5     |")
+	fmt.Println("+----------------------------------+--------+-------+")
+	fmt.Println("| TOTAL                            | ", puntos, "   | 5    |")
+	fmt.Println("+----------------------------------+--------+-------+")
+}

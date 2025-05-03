@@ -1,0 +1,47 @@
+// Función con parámetros que no retorna nada
+func saludarPersona(nombre string) {
+	fmt.Println("¡Hola,", nombre+"!")
+}
+
+// Función con parámetros que retorna un valor
+func sumar(a int, b int) int {
+	return a + b
+}
+
+
+func main() {
+	puntos := 0
+
+	fmt.Println("=== Archivo de prueba de funciones ===")
+
+	// 2. Funciones no recursivas con parámetros (5 puntos)
+	fmt.Println("\n==== Funciones no recursivas con parámetros ====")
+	puntosFuncionesParametros := 0
+
+	fmt.Println("Función con parámetros sin retorno:")
+	fmt.Println("\n\n###Validacion Manual")
+	saludarPersona("Juan")
+
+	fmt.Println("\nFunción con parámetros y retorno:")
+	resultadoSuma := sumar(10, 20)
+	fmt.Println("La suma de 10 y 20 es:", resultadoSuma)
+
+	if resultadoSuma == 30 {
+		puntosFuncionesParametros = puntosFuncionesParametros + 5
+		fmt.Println("OK Función con parámetros y retorno: correcto")
+	} else {
+		fmt.Println("X Función con parámetros y retorno: incorrecto")
+	}
+
+	// Resumen de puntos
+	puntos = puntosFuncionesParametros
+
+	fmt.Println("\n=== Tabla de Resultados ===")
+	fmt.Println("+----------------------------------+--------+-------+")
+	fmt.Println("| Característica                   | Puntos | Total |")
+	fmt.Println("+----------------------------------+--------+-------+")
+	fmt.Println("| Funciones con parámetros         | ", puntosFuncionesParametros, "    | 5     |")
+	fmt.Println("+----------------------------------+--------+-------+")
+	fmt.Println("| TOTAL                            | ", puntos, "   | 5    |")
+	fmt.Println("+----------------------------------+--------+-------+")
+}
