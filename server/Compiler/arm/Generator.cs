@@ -27,8 +27,12 @@ public class ArmGenerator
 
     public void PushObject(StackObject obj)
     {
-        //Console.WriteLine($"Pushing object: Type={obj.Type}, Id={obj.Id}, Depth={obj.Depth}");
         _stack.Add(obj);
+    }
+
+    public int GetDepth()
+    {
+        return _depth;
     }
 
     public void PopObject()
@@ -234,7 +238,7 @@ public class ArmGenerator
             }
             byteOffset += _stack[i].Length;
         }
-        throw new Exception($"Objeto {id} no encontrado en la pila");
+        throw new Exception($"Generator/GetObject: Objeto \"{id}\" no encontrado en la pila");
     }
 
     // -------------------------
@@ -555,7 +559,7 @@ public class ArmGenerator
         sb.AppendLine(".text");
         sb.AppendLine(".global _start");
         sb.AppendLine("_start:");
-        sb.AppendLine("   adr x10, heap");
+        sb.AppendLine("\tadr x10, heap");
 
         EndProgram();
         foreach (var instruction in _instructions)
@@ -564,28 +568,28 @@ public class ArmGenerator
         }
 
         if (_funcInstructions.Count > 0)
-            sb.AppendLine("\n\n\n // Function Definitions");
+            sb.AppendLine("\n// [+] Definiciones de funciones [+]");
         _funcInstructions.ForEach(i => sb.AppendLine(i));
 
         if (_instructions.Count > 0)
-            sb.AppendLine("\n\n\n // Standard Library");
+            sb.AppendLine("\n// [+] Instrucciones [+]");
 
         sb.AppendLine(_stdLib.GetFunctionDefinitions());
 
         return sb.ToString();
     }
 
-    public void commentStack()
-    {
-        Console.WriteLine("Stack:");
-        string stackString = "Stack: ";
-        foreach (var obj in _stack)
-        {
-            stackString += $"[{obj.Type}, {obj.Length}, {obj.Depth}, {obj.Id}] ";
-            Console.WriteLine($"Type: {obj.Type}, Length: {obj.Length}, Depth: {obj.Depth}, Id: {obj.Id}");
-        }
-        Comment(stackString);
-    }
+    // public void commentStack()
+    // {
+    //     Console.WriteLine("Stack:");
+    //     string stackString = "Stack: ";
+    //     foreach (var obj in _stack)
+    //     {
+    //         stackString += $"[{obj.Type}, {obj.Length}, {obj.Depth}, {obj.Id}] ";
+    //         Console.WriteLine($"Type: {obj.Type}, Length: {obj.Length}, Depth: {obj.Depth}, Id: {obj.Id}");
+    //     }
+    //     Comment(stackString);
+    // }
 
 
     public StackObject GetFrameLocal(int index)

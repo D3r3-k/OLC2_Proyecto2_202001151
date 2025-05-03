@@ -23,7 +23,6 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // TODO: Contructor
     public CompilerVisitor()
     {
-
     }
 
     // TODO: Métodos
@@ -44,14 +43,12 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     public override Object? VisitVarDcl([NotNull] LanguageParser.VarDclContext context)
     {
         var varName = context.ID().GetText();
+        c.Comment("[START] Declaracion de variable: " + varName);
         var value = context.expr() != null;
-        // var numero int = 0;
-        // numero := 0;
         if (value)
         {
             Visit(context.expr());
         }
-        // var numero int;
         else
         {
             var typeValue = context.type().GetText();
@@ -59,31 +56,27 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             var defaultValue = Extras.GetDefaultValueArm(typeValue);
             c.PushConstant(obj, defaultValue);
         }
-
-        c.Comment("Variable declaration: " + varName);
-
         if (insideFunction != null)
         {
             var localObj = c.GetFrameLocal(framePointerOffset);
-            var valueObj = c.PopObject(Register.X0); // Pop the value to assign
-
+            var valueObj = c.PopObject(Register.X0);
             c.Mov(Register.X1, framePointerOffset * 8);
-            c.Sub(Register.X1, Register.FP, Register.X1); // Calculate the address of the variable
-            c.Str(Register.X0, Register.X1); // Store the value in the variable
-
+            c.Sub(Register.X1, Register.FP, Register.X1);
+            c.Str(Register.X0, Register.X1);
             localObj.Type = valueObj.Type;
             framePointerOffset++;
-
+            c.Comment("[END] Declaracion de variable: " + varName);
             return null;
         }
-
         c.TagObject(varName);
-
+        c.Comment("[END] Declaracion de variable: " + varName);
         return null;
     }
     // VisitFuncDcl
     public override Object? VisitFuncDcl([NotNull] LanguageParser.FuncDclContext context)
     {
+        c.Comment("[START] Declaracion de funcion: " + context.ID().GetText());
+
         int baseOffset = 2;
         int paramsOffset = 0;
         if (context.@params() != null)
@@ -102,8 +95,8 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         int localOffset = frame.Count;
         int returnOffset = 1;
         int totalFrameSize = baseOffset + paramsOffset + localOffset + returnOffset;
-
         string funcName = context.ID().GetText();
+
         StackObject.StackObjectType funcType = context.type() != null
             ? Extras.GetTypeArm(context.type().GetText())
             : StackObject.StackObjectType.Void;
@@ -117,14 +110,14 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         var prevInstructions = c._instructions;
         c._instructions = new List<string>();
 
-        // 4. Prologo de la función
-        c.Comment($"Function Declaration: {funcName}");
+        c.Comment("[START] Prologo de la funcion: " + funcName);
         c.SetLabel(funcName);
 
         var paramCounter = 0;
         var paramTypes = context.@params()?.type() ?? Array.Empty<LanguageParser.TypeContext>();
         var paramIds = context.@params()?.ID() ?? Array.Empty<ITerminalNode>();
 
+        c.Comment("Procesando parametros de la funcion");
         for (int i = 0; i < paramIds.Length; i++)
         {
             var paramId = paramIds[i].GetText();
@@ -140,7 +133,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             paramCounter++;
         }
 
-
+        c.Comment("Procesando variables locales de la funcion");
         foreach (var element in frame)
         {
             c.PushObject(new StackObject
@@ -152,35 +145,33 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             });
         }
 
-
         insideFunction = funcName;
         framePointerOffset = 0;
 
         returnLabel = c.GetLabel();
 
-        c.Comment("Function Declaration" + funcName);
-        c.SetLabel(funcName);
-
+        c.Comment("Visitando declaraciones dentro de la funcion");
         foreach (var dcl in context.dcl())
         {
             Visit(dcl);
         }
 
-
+        c.Comment("[START] Epilogo de la funcion: " + funcName);
         c.SetLabel(returnLabel);
 
         c.Add(Register.X0, Register.FP, Register.XZR);
         c.Ldr(Register.LR, Register.X0);
         c.Br(Register.LR);
 
-        c.Comment("End of Function Declaration" + funcName);
+        c.Comment("[END] Declaracion de funcion: " + funcName);
 
+        c.Comment("Limpiando objetos de la pila");
         for (int i = 0; i < paramsOffset + localOffset; i++)
         {
             c.PopObject();
         }
 
-
+        c.Comment("Guardando instrucciones de la funcion");
         foreach (var instruction in c._instructions)
         {
             c._funcInstructions.Add(instruction);
@@ -199,7 +190,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitPrintStmt
     public override Object? VisitPrintStmt([NotNull] LanguageParser.PrintStmtContext context)
     {
-        c.Comment("Print Statement");
+        c.Comment("[START] Print Statement");
         // Imprimir todos los argumentos
         foreach (var expr in context.expr())
         {
@@ -233,22 +224,23 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             }
         }
         c.PrintNewLine();
+        c.Comment("[END] Print Statement");
         return null;
     }
     // VisitExprStmt
     public override Object? VisitExprStmt([NotNull] LanguageParser.ExprStmtContext context)
     {
-        c.Comment("Expression Statement");
+        c.Comment("[START] Expression Statement");
         Visit(context.expr());
-        c.Comment("Pop the value to discard");
-        c.PopObject(Register.X0); // Pop the value to discard
-
+        c.Comment("Haciendo POP a la expresion");
+        c.PopObject(Register.X0);
+        c.Comment("[END] Expression Statement");
         return null;
     }
     // VisitBlockStmt
     public override Object? VisitBlockStmt([NotNull] LanguageParser.BlockStmtContext context)
     {
-        c.Comment("Block Statement");
+        c.Comment("[START] Block Statement");
         c.NewScope();
         foreach (var dcl in context.dcl())
         {
@@ -257,98 +249,120 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         int bytesToRemove = c.EndScope();
         if (bytesToRemove > 0)
         {
-            c.Comment("Removing " + bytesToRemove + " bytes from the stack");
+            c.Comment("Removiendo " + bytesToRemove + " bytes de la pila");
             c.Mov(Register.X0, bytesToRemove);
             c.Add(Register.SP, Register.SP, Register.X0); // Remove the bytes from the stack
-            c.Comment("Stack pointer after removing bytes: " + Register.SP);
+            c.Comment("Puntero de pila después de remover bytes: " + Register.SP);
         }
+        c.Comment("[END] Block Statement");
         return null;
     }
     // VisitIfStmt
     public override Object? VisitIfStmt([NotNull] LanguageParser.IfStmtContext context)
     {
-        c.Comment("If Statement");
-        Visit(context.expr()); // Visit the condition
-        c.PopObject(Register.X0); // Pop the condition value
-
+        c.Comment("[START] If Statement");
+        Visit(context.expr());
+        c.PopObject(Register.X0);
         var hasElse = context.stmt().Length > 1;
+        string endLabel = c.GetLabel();
+        string elseLabel = hasElse ? c.GetLabel() : endLabel;
+        // Saltar a "else" si la condición es falsa
+        c.Cbz(Register.X0, elseLabel);
+        c.Comment("[+] Ejecutando bloque 'if'");
+        c.NewScope();
+        Visit(context.stmt(0));
+        c.Comment("[+] Fin del bloque 'if'");
+        int bytesToRemoveThen = c.EndScope();
+        if (bytesToRemoveThen > 0)
+        {
+            c.Comment($"Liberando {bytesToRemoveThen} bytes del ámbito del 'then'");
+            c.Add(Register.SP, Register.SP, bytesToRemoveThen);
+        }
+
         if (hasElse)
         {
-            var elseLabel = c.GetLabel();
-            var endLabel = c.GetLabel();
-
-            c.Cbz(Register.X0, elseLabel); // Compare the condition with 0
-            Visit(context.stmt(0)); // Visit the true branch
-            c.B(endLabel); // Jump to the end
-            c.SetLabel(elseLabel); // Set the else label
-            Visit(context.stmt(1)); // Visit the false branch
-            c.SetLabel(endLabel); // Set the end label
+            c.Comment("[+] Ejecutando bloque 'else'");
+            c.B(endLabel);
+            c.SetLabel(elseLabel);
+            c.NewScope();
+            Visit(context.stmt(1));
+            c.Comment("[+] Fin del bloque 'else'");
+            int bytesToRemoveElse = c.EndScope();
+            if (bytesToRemoveElse > 0)
+            {
+                c.Comment($"Liberando {bytesToRemoveElse} bytes del ámbito del 'else'");
+                c.Add(Register.SP, Register.SP, bytesToRemoveElse);
+            }
         }
-        else
-        {
-            var endLabel = c.GetLabel();
-
-            c.Cbz(Register.X0, endLabel); // Compare the condition with 0
-            Visit(context.stmt(0)); // Visit the true branch
-            c.SetLabel(endLabel); // Set the end label
-        }
-
+        c.SetLabel(endLabel);
+        c.Comment("[END] If Statement");
         return null;
     }
-
     // VisitSwitchStmt
     public override Object? VisitSwitchStmt([NotNull] LanguageParser.SwitchStmtContext context)
     {
-        c.Comment("Switch Statement");
-
-        // Guardar etiquetas anteriores
-        var prevBreakLabel = breakLabel;
+        c.Comment("[START] Switch Statement");
+        var previousBreakLabel = breakLabel;
         breakLabel = c.GetLabel("SWITCH_END");
-
-        // Evaluar expresión del switch y GUARDAR en X19
-        Visit(context.expr());
-        c.PopObject(Register.X19); // X19 = valor de x
-
         string endLabel = breakLabel;
-        string defaultLabel = context.switchDefault() != null ? c.GetLabel("SWITCH_DEFAULT") : null;
-
+        Visit(context.expr());
+        c.PopObject(Register.X19);
         foreach (var caseCtx in context.switchCase())
         {
+            c.Comment("[+] Ejecutando bloque 'case'");
             string caseLabel = c.GetLabel("CASE");
-            string nextCaseLabel = c.GetLabel("NEXT_CASE");
-
-            // Evaluar valor del caso en X1 (sin tocar X19)
+            string nextLabel = c.GetLabel("NEXT_CASE");
             Visit(caseCtx.expr());
-            c.PopObject(Register.X1); // X1 = valor del caso
-
-            // Comparar X19 (x) con X1 (caso)
+            c.PopObject(Register.X1);
+            // Comparar el valor del case con el valor de la expresión
             c.Cmp(Register.X19, Register.X1);
             c.Beq(caseLabel);
-            c.B(nextCaseLabel);
-
+            c.B(nextLabel);
             c.SetLabel(caseLabel);
-            foreach (var stmt in caseCtx.stmt()) Visit(stmt);
+            c.NewScope();
+            foreach (var stmt in caseCtx.stmt())
+            {
+                Visit(stmt);
+            }
+            int bytesToRemove = c.EndScope();
+            if (bytesToRemove > 0)
+            {
+                c.Comment($"Liberando {bytesToRemove} bytes del case");
+                c.Add(Register.SP, Register.SP, bytesToRemove);
+            }
             c.B(endLabel);
-
-            c.SetLabel(nextCaseLabel);
+            c.SetLabel(nextLabel);
         }
-
-        // Manejar default
+        // Si hay un caso por defecto
         if (context.switchDefault() != null)
         {
+            c.Comment("[+] Ejecutando bloque 'default'");
+            string defaultLabel = c.GetLabel("DEFAULT");
             c.B(defaultLabel);
             c.SetLabel(defaultLabel);
-            foreach (var stmt in context.switchDefault().stmt()) Visit(stmt);
+            c.NewScope();
+            foreach (var stmt in context.switchDefault().stmt())
+            {
+                Visit(stmt);
+            }
+            int bytesToRemove = c.EndScope();
+            if (bytesToRemove > 0)
+            {
+                c.Comment($"Liberando {bytesToRemove} bytes del default");
+                c.Add(Register.SP, Register.SP, bytesToRemove);
+            }
             c.B(endLabel);
         }
-
         c.SetLabel(endLabel);
-        breakLabel = prevBreakLabel;
+        breakLabel = previousBreakLabel;
+        c.Comment("Fin del Switch Statement");
         return null;
     }
+
     // VisitForStmt
     public override Object? VisitForStmt([NotNull] LanguageParser.ForStmtContext context)
     {
+        c.Comment("[START] For Statement");
         var startLabel = c.GetLabel();
         var endLabel = c.GetLabel();
         var incrementLabel = c.GetLabel();
@@ -359,39 +373,64 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         continueLabel = incrementLabel;
         breakLabel = endLabel;
 
-        c.Comment("For Statement");
+        // --- INICIALIZACIÓN ---
+        c.Comment("[INIT] Ejecutando inicialización del for");
         c.NewScope();
+        Visit(context.forInit());
+        c.Comment("[INIT] Fin de la inicialización");
 
-        Visit(context.forInit()); // Visit the initialization
+        // --- CONDICIÓN ---
+        c.Comment("[COND] Evaluando condición del for ");
         c.SetLabel(startLabel);
-        Visit(context.expr(0)); // Visit the condition
-        c.PopObject(Register.X0); // Pop the condition value
-        c.Cbz(Register.X0, endLabel); // Compare the condition with 0
-        Visit(context.stmt()); // Visit the body
-        c.SetLabel(incrementLabel);
-        Visit(context.expr(1)); // Visit the increment
-        c.B(startLabel); // Jump to the start label
-        c.SetLabel(endLabel); // Set the end label
+        Visit(context.expr(0));
+        c.PopObject(Register.X0);
+        c.Cbz(Register.X0, endLabel);
+        c.Comment("[COND] Condición verdadera, ejecutando cuerpo");
 
-        c.Comment("End of For Statement");
-
-        var bytesToRemove = c.EndScope();
-        if (bytesToRemove > 0)
+        // --- CUERPO DEL BUCLE ---
+        c.Comment("[BODY] Ejecutando cuerpo del for");
+        c.NewScope();
+        Visit(context.stmt());
+        int bytesBody = c.EndScope();
+        if (bytesBody > 0)
         {
-            c.Comment("Removing " + bytesToRemove + " bytes from the stack");
-            c.Mov(Register.X0, bytesToRemove);
-            c.Add(Register.SP, Register.SP, Register.X0); // Remove the bytes from the stack
-            c.Comment("Stack pointer after removing bytes: " + Register.SP);
+            c.Comment($"[BODY] Liberando {bytesBody} bytes del cuerpo");
+            c.Add(Register.SP, Register.SP, bytesBody);
         }
+        c.Comment("[BODY] Fin del cuerpo");
+
+        // --- INCREMENTO ---
+        c.Comment("[INC] Procesando expresión de incremento");
+        c.SetLabel(incrementLabel);
+        if (context.expr().Length > 1)
+        {
+            Visit(context.expr(1));
+            c.PopObject(Register.X0);
+        }
+        c.Comment("[INC] Fin del incremento");
+
+        // --- SALTO A CONDICIÓN ---
+        c.B(startLabel);
+
+        // --- FIN DEL BUCLE ---
+        c.SetLabel(endLabel);
+        int bytesLoop = c.EndScope();
+        if (bytesLoop > 0)
+        {
+            c.Comment($"Liberando {bytesLoop} bytes del ámbito del for");
+            c.Add(Register.SP, Register.SP, bytesLoop);
+        }
+
         continueLabel = prevContinueLabel;
         breakLabel = prevBreakLabel;
+        c.Comment("[END] Fin del For Statement");
 
         return null;
     }
     // VisitForCondStmt
     public override Object? VisitForCondStmt([NotNull] LanguageParser.ForCondStmtContext context)
     {
-        c.Comment("For Condition Statement");
+        c.Comment("[START] For Condition Statement");
         var startLabel = c.GetLabel();
         var endLabel = c.GetLabel();
 
@@ -400,19 +439,34 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         continueLabel = startLabel;
         breakLabel = endLabel;
 
+        // --- CONDICIÓN ---
         c.SetLabel(startLabel);
-        Visit(context.expr()); // Visit the condition
-        c.PopObject(Register.X0); // Pop the condition value
+        c.Comment("[COND] Evaluando condición del for");
+        Visit(context.expr());
+        c.PopObject(Register.X0);
+        c.Cbz(Register.X0, endLabel);
+        c.Comment("[COND] Condición verdadera, ejecutando cuerpo");
 
-        c.Cbz(Register.X0, endLabel); // Compare the condition with 0
-        Visit(context.stmt()); // Visit the body
-        c.B(startLabel); // Jump to the start label
-        c.SetLabel(endLabel); // Set the end label
+        // --- CUERPO DEL BUCLE (con scope) ---
+        c.Comment("[BODY] Iniciando ámbito del cuerpo del for");
+        c.NewScope();
+        Visit(context.stmt());
+        int bytesToFree = c.EndScope();
+        if (bytesToFree > 0)
+        {
+            c.Comment($"Liberando {bytesToFree} bytes del ámbito");
+            c.Add(Register.SP, Register.SP, bytesToFree);
+        }
+        c.Comment("[BODY] Fin del cuerpo");
 
-        c.Comment("End of For Condition Statement");
+        // --- REINICIO DEL BUCLE ---
+        c.B(startLabel);
+        c.SetLabel(endLabel);
 
+        // --- RESTAURAR ETIQUETAS ---
         continueLabel = prevContinueLabel;
         breakLabel = prevBreakLabel;
+        c.Comment("[END] Fin del For Condition Statement");
 
         return null;
     }
@@ -421,59 +475,52 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     {
         return null;
     }
-    public void VisitForBody([NotNull] LanguageParser.ForStmtContext context)
-    {
-        // return null;
-    }
-    public void VisitForBody([NotNull] LanguageParser.ForCondStmtContext context)
-    {
-        // return null;
-    }
     // VisitBreakStmt
     public override Object? VisitBreakStmt([NotNull] LanguageParser.BreakStmtContext context)
     {
-        c.Comment("Break Statement");
+        c.Comment("[START] Break Statement");
         if (breakLabel != null)
         {
-            c.B(breakLabel); // Jump to the break label
+            c.B(breakLabel);
         }
+        c.Comment("[END] Break Statement");
         return null;
     }
     // VisitContinueStmt
     public override Object? VisitContinueStmt([NotNull] LanguageParser.ContinueStmtContext context)
     {
-        c.Comment("Continue Statement");
+        c.Comment("[START] Continue Statement");
         if (continueLabel != null)
         {
-            c.B(continueLabel); // Jump to the continue label
+            c.B(continueLabel);
         }
+        c.Comment("[END] Continue Statement");
         return null;
     }
     // VisitReturnStmt
     public override Object? VisitReturnStmt([NotNull] LanguageParser.ReturnStmtContext context)
     {
-        c.Comment("Return Statement");
-        if (insideFunction == null) throw new Exception("Return statement outside of function");
+        c.Comment("[START] Return Statement");
+        if (insideFunction == null) throw new Exception("Sentencia de retorno fuera de una función");
 
         if (context.expr() != null)
         {
             Visit(context.expr());
-            c.PopObject(Register.X0); // Pop the return value
+            c.PopObject(Register.X0);
 
             var frameSize = functions[insideFunction].FrameSize;
             var returnOffset = frameSize - 1;
             c.Mov(Register.X1, returnOffset * 8);
-            c.Sub(Register.X1, Register.FP, Register.X1); // Calculate return address
-            c.Str(Register.X0, Register.X1); // Store return value
+            c.Sub(Register.X1, Register.FP, Register.X1);
+            c.Str(Register.X0, Register.X1);
 
             c.B(returnLabel);
         }
         else
         {
-            // Return void
             c.B(returnLabel);
         }
-
+        c.Comment("[END] Return Statement");
         return null;
     }
     // // VisitSwitchCase
@@ -482,11 +529,10 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitCallee
     public override Object? VisitCallee([NotNull] LanguageParser.CalleeContext context)
     {
+        c.Comment("[START] Function Call");
         if (context.expr() is not LanguageParser.IdentifierContext idContext) return null;
-
         string funcName = idContext.ID().GetText();
         var call = context.call()[0];
-
         if (call is not LanguageParser.FuncCallContext callContext) return null;
 
         // TODO: Funcion embedida
@@ -497,55 +543,54 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         int stackElementSize = 8;
 
         c.Mov(Register.X0, baseOffset * stackElementSize);
-        c.Sub(Register.SP, Register.SP, Register.X0); // Allocate space for the function call
+        c.Sub(Register.SP, Register.SP, Register.X0);
 
         // 2. | RA | FP | ...params |
         if (callContext.args() != null)
         {
-            c.Comment("Visiting function parameters");
+            c.Comment("[+] Procesando argumentos de la funcion");
             foreach (var param in callContext.args().expr())
             {
                 Visit(param);
             }
         }
-
         // 3. Calcular el valor del FP
         // Regresar el SP al inicio del Frame
         c.Mov(Register.X0, stackElementSize * (baseOffset + (callContext.args() != null ? callContext.args().expr().Length : 0)));
-        c.Add(Register.SP, Register.SP, Register.X0); // Remove the bytes from the stack
+        c.Add(Register.SP, Register.SP, Register.X0);
 
         // Calcular la posicion donde se va a guardar el FP
         c.Mov(Register.X0, stackElementSize);
-        c.Sub(Register.X0, Register.SP, Register.X0); // Allocate space for the function call
+        c.Sub(Register.X0, Register.SP, Register.X0);
 
-        c.Adr(Register.X1, postFuncCallLabel); // Set the return address
-        c.Push(Register.X1); // Push the return address
+        c.Adr(Register.X1, postFuncCallLabel);
+        c.Push(Register.X1);
 
         c.Push(Register.FP);
         c.Add(Register.FP, Register.X0, Register.XZR);
 
         int frameSize = functions[funcName].FrameSize;
         c.Mov(Register.X0, (frameSize - 2) * stackElementSize);
-        c.Sub(Register.SP, Register.SP, Register.X0); // Allocate space for the function call
+        c.Sub(Register.SP, Register.SP, Register.X0);
 
-        c.Comment("Function Call: " + funcName);
-        c.Bl(funcName); // Call the function
-        c.Comment("End of Function Call: " + funcName);
-        c.SetLabel(postFuncCallLabel); // Set the post function call label
+        c.Comment("[+] Llamando a la funcion: " + funcName);
+        c.Bl(funcName);
+        c.Comment("[+] Fin de la llamada a la funcion");
+        c.SetLabel(postFuncCallLabel);
 
         var returnOffset = frameSize - 1;
         c.Mov(Register.X4, returnOffset * stackElementSize);
-        c.Sub(Register.X4, Register.FP, Register.X4); // Calculate the address of the return value
-        c.Ldr(Register.X4, Register.X4); // Load the return value
+        c.Sub(Register.X4, Register.FP, Register.X4);
+        c.Ldr(Register.X4, Register.X4);
 
         c.Mov(Register.X1, stackElementSize);
-        c.Sub(Register.X1, Register.FP, Register.X1); // Calculate the address of the return value
-        c.Ldr(Register.FP, Register.X1); // Load the return value
+        c.Sub(Register.X1, Register.FP, Register.X1);
+        c.Ldr(Register.FP, Register.X1);
 
         c.Mov(Register.X0, stackElementSize * frameSize);
-        c.Add(Register.SP, Register.SP, Register.X0); // Remove the bytes from the stack
+        c.Add(Register.SP, Register.SP, Register.X0);
 
-        c.Push(Register.X4); // Push the return value
+        c.Push(Register.X4);
         c.PushObject(new StackObject
         {
             Type = functions[funcName].ReturnType,
@@ -553,7 +598,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             Offset = 0,
             Length = 8
         });
-        c.Comment("End of Function Call: " + funcName);
+        c.Comment("[END] Function Call");
 
         return null;
     }
@@ -566,24 +611,20 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     public override Object? VisitMulDiv([NotNull] LanguageParser.MulDivContext context)
     {
         var operation = context.op.Text;
-        c.Comment($"{operation} operation");
-
-        // Evaluar operandos
-        Visit(context.expr(0)); // Left operand -> [left]
-        Visit(context.expr(1)); // Right operand -> [left, right]
-
+        c.Comment($"[START] {operation} operation");
+        Visit(context.expr(0));
+        Visit(context.expr(1));
         // Determinar tipos
         var isRightDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
-        var right = c.PopObject(isRightDouble ? Register.D0 : Register.X1); // Pop right -> [left]
+        var right = c.PopObject(isRightDouble ? Register.D0 : Register.X1);
         var isLeftDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
-        var left = c.PopObject(isLeftDouble ? Register.D1 : Register.X0); // Pop left -> []
+        var left = c.PopObject(isLeftDouble ? Register.D1 : Register.X0);
 
         if (isLeftDouble || isRightDouble)
         {
-            // Operación con flotantes
-            if (!isLeftDouble) c.Scvtf(Register.D1, Register.X0); // Convert left to double
-            if (!isRightDouble) c.Scvtf(Register.D0, Register.X1); // Convert right to double
-
+            // Convertir a flotante si es necesario
+            if (!isLeftDouble) c.Scvtf(Register.D1, Register.X0);
+            if (!isRightDouble) c.Scvtf(Register.D0, Register.X1);
             switch (operation)
             {
                 case "*":
@@ -596,12 +637,11 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                     throw new Exception($"Unsupported operation: {operation}");
             }
 
-            c.Push(Register.D0); // Push result -> [result]
+            c.Push(Register.D0);
             c.PushObject(c.CloneObject(isLeftDouble ? left : right));
         }
         else
         {
-            // Operación con enteros
             switch (operation)
             {
                 case "*":
@@ -618,92 +658,80 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
                 default:
                     throw new Exception($"Unsupported operation: {operation}");
             }
-
-            c.Push(Register.X0); // Push result -> [result]
+            c.Push(Register.X0);
             c.PushObject(c.CloneObject(left));
         }
-
+        c.Comment($"[END] {operation} operation");
         return null;
     }
     // VisitAddSub
     public override object? VisitAddSub([NotNull] LanguageParser.AddSubContext context)
     {
         var operation = context.op.Text;
-        Visit(context.expr(0)); // Left operand
-        Visit(context.expr(1)); // Right operand
-
-        // 1. Pop de operandos y verificación de tipos
+        c.Comment($"[START] {operation} operation");
+        Visit(context.expr(0));
+        Visit(context.expr(1));
+        // Determinar tipos
         var isRightDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
-        var right = c.PopObject(isRightDouble ? Register.D0 : Register.X1); // Pop right (segundo operando)
+        var right = c.PopObject(isRightDouble ? Register.D0 : Register.X1);
         var isLeftDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
-        var left = c.PopObject(isLeftDouble ? Register.D1 : Register.X0); // Pop left (primer operando)
-
-        // 2. Manejar concatenación de strings primero
+        var left = c.PopObject(isLeftDouble ? Register.D1 : Register.X0);
+        // Determinar si son enteros o flotantes o strings
         if (operation == "+" &&
             left.Type == StackObject.StackObjectType.String &&
             right.Type == StackObject.StackObjectType.String)
         {
-            //=============================================================
-            // CONCATENACIÓN DE STRINGS (Código preservado del usuario)
-            //=============================================================
-            c.Comment("|===============[Concatenando]==================|");
+            c.Comment("[+] Concatenando strings [+]");
             c._stdLib.Use("concat_strings");
-
-            // Los pops ya se hicieron, invertir orden para concatenación correcta
             c.Push(Register.X0); // left (primer string)
             c.Push(Register.X1); // right (segundo string)
             c.Bl("concat_strings");
-            c.Add(Register.SP, Register.SP, 16); // Limpiar args de la pila
-            c.Push(Register.X0); // Push resultado
+            c.Add(Register.SP, Register.SP, 16);
+            c.Push(Register.X0);
             c.PushObject(c.StringObject());
             return null;
         }
-
-        //=============================================================
-        // LÓGICA PARA NÚMEROS (Enteros y Flotantes)
-        //=============================================================
-        if (isLeftDouble || isRightDouble)
+        else if (isLeftDouble || isRightDouble)
         {
             // Convertir operandos a double si es necesario
-            if (!isLeftDouble) c.Scvtf(Register.D1, Register.X0); // Entero -> Double
+            if (!isLeftDouble) c.Scvtf(Register.D1, Register.X0);
             if (!isRightDouble) c.Scvtf(Register.D0, Register.X1);
-
             // Realizar operación
             if (operation == "+")
-                c.Fadd(Register.D0, Register.D1, Register.D0); // D0 = D1 + D0
+                c.Fadd(Register.D0, Register.D1, Register.D0);
             else
-                c.Fsub(Register.D0, Register.D1, Register.D0); // D0 = D1 - D0
+                c.Fsub(Register.D0, Register.D1, Register.D0);
 
             c.Push(Register.D0);
             c.PushObject(c.FloatObject());
         }
-        else // Ambos son enteros
+        else
         {
             if (operation == "+")
-                c.Add(Register.X0, Register.X0, Register.X1); // X0 = X0 + X1
+                c.Add(Register.X0, Register.X0, Register.X1);
             else
-                c.Sub(Register.X0, Register.X0, Register.X1); // X0 = X0 - X1
+                c.Sub(Register.X0, Register.X0, Register.X1);
 
             c.Push(Register.X0);
             c.PushObject(c.IntObject());
         }
-
+        c.Comment($"[END] {operation} operation");
         return null;
     }
     // VisitParens
     public override Object? VisitParens([NotNull] LanguageParser.ParensContext context)
     {
-        c.Comment("Parentheses");
-        Visit(context.expr()); // Visit the expression inside parentheses
+        c.Comment("[START] Parentesis");
+        Visit(context.expr());
+        c.Comment("[END] Parentesis");
         return null;
     }
     // VisitRelational
     public override Object? VisitRelational([NotNull] LanguageParser.RelationalContext context)
     {
-        c.Comment($"Relational operation: {context.op.Text}");
-        Visit(context.expr(0)); // Left operand
-        Visit(context.expr(1)); // Right operand
-
+        c.Comment($"[START] Relational operation: {context.op.Text}");
+        Visit(context.expr(0));
+        Visit(context.expr(1));
         // Determinar tipos
         var isRightFloat = c.TopObject().Type == StackObject.StackObjectType.Float;
         var right = c.PopObject(isRightFloat ? Register.D0 : Register.X1);
@@ -741,13 +769,13 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
         c.Push(Register.X0);
         c.PushObject(c.BoolObject());
-
+        c.Comment($"[END] Relational operation: {context.op.Text}");
         return null;
     }
     // VisitIncDec
     public override Object? VisitIncDec([NotNull] LanguageParser.IncDecContext context)
     {
-        c.Comment($"{context.op.Text} operation");
+        c.Comment("[START] Increment/Decrement operation");
         var operation = context.op.Text;
         var id = context.ID().GetText();
 
@@ -772,48 +800,47 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         // Operación de incremento/decremento
         if (isDouble)
         {
-            c.Ldr(Register.D0, Register.X1); // Cargar valor flotante
-            c.Fmov(Register.D1, 1.0);       // Cargar 1.0 en registro flotante
+            c.Ldr(Register.D0, Register.X1);
+            c.Fmov(Register.D1, 1.0);
 
             if (operation == "++")
             {
-                c.Fadd(Register.D0, Register.D0, Register.D1); // Incremento
+                c.Fadd(Register.D0, Register.D0, Register.D1);
             }
             else
             {
-                c.Fsub(Register.D0, Register.D0, Register.D1); // Decremento
+                c.Fsub(Register.D0, Register.D0, Register.D1);
             }
 
-            c.Str(Register.D0, Register.X1); // Almacenar nuevo valor
-            c.Push(Register.D0);             // Push resultado
+            c.Str(Register.D0, Register.X1);
+            c.Push(Register.D0);
         }
         else
         {
-            c.Ldr(Register.X0, Register.X1); // Cargar valor entero
+            c.Ldr(Register.X0, Register.X1);
 
             if (operation == "++")
             {
-                c.Add(Register.X0, Register.X0, 1); // Incremento
+                c.Add(Register.X0, Register.X0, 1);
             }
             else
             {
-                c.Sub(Register.X0, Register.X0, 1); // Decremento
+                c.Sub(Register.X0, Register.X0, 1);
             }
 
-            c.Str(Register.X0, Register.X1); // Almacenar nuevo valor
-            c.Push(Register.X0);             // Push resultado
+            c.Str(Register.X0, Register.X1);
+            c.Push(Register.X0);
         }
-
         // Actualizar el objeto en la pila
         c.PushObject(c.CloneObject(obj));
-
+        c.Comment("[END] Increment/Decrement operation");
         return null;
     }
     // VisitString
     public override Object? VisitString([NotNull] LanguageParser.StringContext context)
     {
         var value = context.STRING().GetText().Trim('"');
-        c.Comment("String Constante: " + value);
+        c.Comment("Valor String: " + value);
         var stringObj = c.StringObject();
         c.PushConstant(stringObj, value);
 
@@ -823,17 +850,16 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     public override Object? VisitInt([NotNull] LanguageParser.IntContext context)
     {
         var value = context.INT().GetText();
-        c.Comment("Constante: " + value);
+        c.Comment("Valor Int: " + value);
         var intObject = c.IntObject();
         c.PushConstant(intObject, int.Parse(value));
-
         return null;
     }
 
     // VisitNil
     public override Object? VisitNil([NotNull] LanguageParser.NilContext context)
     {
-        c.Comment("Nil Constante");
+        c.Comment("Valor NIL: nil");
         var nilObject = c.NilObject();
         c.PushConstant(nilObject, null);
         return null;
@@ -842,8 +868,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     public override Object? VisitFloat([NotNull] LanguageParser.FloatContext context)
     {
         var value = context.FLOAT().GetText();
-
-        c.Comment("Constante: " + value);
+        c.Comment("Valor Float64: " + value);
         var floatObject = c.FloatObject();
         c.PushConstant(floatObject, double.Parse(value, System.Globalization.CultureInfo.InvariantCulture));
 
@@ -852,39 +877,34 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitNot
     public override Object? VisitNot([NotNull] LanguageParser.NotContext context)
     {
-        c.Comment("Logical NOT operation");
-        Visit(context.expr()); // Visit the operand to negate
-
-        // Pop the boolean value (always treated as integer in ARM)
+        c.Comment("[START] Logical NOT operation");
+        Visit(context.expr());
         var operand = c.PopObject(Register.X0);
 
         if (operand.Type != StackObject.StackObjectType.Bool)
         {
-            throw new SemanticError("Operand of '!' must be boolean", context.Start);
+            throw new SemanticError("El operando de '!' debe ser booleano", context.Start);
         }
-
-        // ARM64 logical NOT implementation:
-        c.Cmp(Register.X0, 0);          // Compare with 0 (false)
-        c.Cset(Register.X0, Register.EQ);  // Set to 1 if equal (was 0), else 0
+        c.Cmp(Register.X0, 0);
+        c.Cset(Register.X0, Register.EQ);
 
         c.Push(Register.X0);
-        c.PushObject(c.BoolObject());  // Push boolean result
-
+        c.PushObject(c.BoolObject());
+        c.Comment("[END] Logical NOT operation");
         return null;
     }
     // VisitIdentifier
     public override Object? VisitIdentifier([NotNull] LanguageParser.IdentifierContext context)
     {
         var id = context.ID().GetText();
-
+        c.Comment("[START] Identifier: " + id);
         var (offset, obj) = c.GetObject(id);
-
         if (insideFunction != null)
         {
             c.Mov(Register.X0, obj.Offset * 8);
-            c.Sub(Register.X0, Register.FP, Register.X0); // Calculate the address of the variable
-            c.Ldr(Register.X0, Register.X0); // Load the address of the variable
-            c.Push(Register.X0); // Push the address of the variable
+            c.Sub(Register.X0, Register.FP, Register.X0);
+            c.Ldr(Register.X0, Register.X0);
+            c.Push(Register.X0);
             var CloneObject = c.CloneObject(obj);
             CloneObject.Id = null;
             c.PushObject(CloneObject);
@@ -900,12 +920,13 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         var newObj = c.CloneObject(obj);
         newObj.Id = null;
         c.PushObject(newObj);
-
+        c.Comment("[END] Identifier: " + id);
         return null;
     }
     // VisitAssign
     public override Object? VisitAssign([NotNull] LanguageParser.AssignContext context)
     {
+        c.Comment("[START] Assignment operation");
         var asignee = context.expr(0);
         if (asignee is LanguageParser.IdentifierContext idContext)
         {
@@ -933,46 +954,40 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
             c.Push(Register.X0);
             c.PushObject(c.CloneObject(varObj));
-
         }
+        c.Comment("[END] Assignment operation");
+
         return null;
     }
 
     // VisitNegate
     public override Object? VisitNegate([NotNull] LanguageParser.NegateContext context)
     {
-        c.Comment("Negate operation");
-        Visit(context.expr()); // Visit the operand to negate
-
-        // Determine if the operand is float or integer
+        c.Comment("[START] Negation operation");
+        Visit(context.expr());
         var isDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
         var operand = c.PopObject(isDouble ? Register.D0 : Register.X0);
 
         if (isDouble)
         {
-            // Floating-point negation
-            c.Fneg(Register.D0, Register.D0); // D0 = -D0
+            c.Fneg(Register.D0, Register.D0);
             c.Push(Register.D0);
         }
         else
         {
-            // Integer negation
-            c.Neg(Register.X0, Register.X0); // X0 = -X0
+            c.Neg(Register.X0, Register.X0);
             c.Push(Register.X0);
         }
-
-        // Push the same type back to the stack
         c.PushObject(operand);
-
+        c.Comment("[END] Negation operation");
         return null;
     }
     // VisitEquality
     public override Object? VisitEquality([NotNull] LanguageParser.EqualityContext context)
     {
-        // Comparando numeros enteros
-        c.Comment($"Equality operation: {context.op.Text}");
-        Visit(context.expr(0)); // Left operand
-        Visit(context.expr(1)); // Right operand
+        c.Comment($"[START] Equality operation: {context.op.Text}");
+        Visit(context.expr(0));
+        Visit(context.expr(1));
         // Determinar tipos
         var isRightDouble = c.TopObject().Type == StackObject.StackObjectType.Float;
         var right = c.PopObject(isRightDouble ? Register.D0 : Register.X1);
@@ -992,19 +1007,18 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         }
         else if (left.Type == StackObject.StackObjectType.Float || right.Type == StackObject.StackObjectType.Float)
         {
-            // Cargar ambos operandos en registros flotantes
             if (left.Type != StackObject.StackObjectType.Float)
             {
-                c.Scvtf(Register.D1, Register.X0); // Convertir entero izquierdo a float
+                c.Scvtf(Register.D1, Register.X0);
             }
             else
             {
-                c.Fmov(Register.D1, Register.D0); // Mover float izquierdo a D1
+                c.Fmov(Register.D1, Register.D0);
             }
 
             if (right.Type != StackObject.StackObjectType.Float)
             {
-                c.Scvtf(Register.D0, Register.X1); // Convertir entero derecho a float
+                c.Scvtf(Register.D0, Register.X1);
             }
             c.Fcmp(Register.D1, Register.D0);
             c.Cset(Register.X0, condition);
@@ -1019,12 +1033,12 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         {
             // Comparación de strings
             c._stdLib.Use("string_compare");
-            c.Push(Register.X0); // Push dirección izquierda
-            c.Push(Register.X1); // Push dirección derecha
+            c.Push(Register.X0);
+            c.Push(Register.X1);
             c.Bl("string_compare");
-            c.Add(Register.SP, Register.SP, 16); // Añadir esta línea para limpiar los argumentos
-            c.Cmp(Register.X0, 0); // Comparar resultado con 0
-            c.Cset(Register.X0, condition); // X0 = 1 si condición se cumple
+            c.Add(Register.SP, Register.SP, 16);
+            c.Cmp(Register.X0, 0);
+            c.Cset(Register.X0, condition);
         }
         else if (left.Type == StackObject.StackObjectType.Bool && right.Type == StackObject.StackObjectType.Bool)
         {
@@ -1043,14 +1057,15 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             throw new SemanticError("Tipos no comparables", context.Start);
         }
         c.Push(Register.X0);
-        c.PushObject(c.BoolObject()); // Push boolean result
+        c.PushObject(c.BoolObject());
+        c.Comment($"[END] Equality operation: {context.op.Text}");
         return null;
     }
     // VisitBoolean
     public override Object? VisitBoolean([NotNull] LanguageParser.BooleanContext context)
     {
         var value = context.BOOL().GetText();
-        c.Comment("Boolean Constante: " + value);
+        c.Comment("Valor Bool: " + value);
         var boolObject = c.BoolObject();
         c.PushConstant(boolObject, value == "true" ? true : false);
 
@@ -1060,7 +1075,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     public override Object? VisitRune([NotNull] LanguageParser.RuneContext context)
     {
         var value = context.RUNE().GetText().Trim('\'');
-        c.Comment("Rune Constante: " + value);
+        c.Comment("Valor Rune: " + value);
         var runeObject = c.RuneObject();
         c.Mov(Register.X0, (int)value[0]);
         c.Push(Register.X0);
@@ -1071,7 +1086,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     // VisitAndOr
     public override Object? VisitAndOr([NotNull] LanguageParser.AndOrContext context)
     {
-        c.Comment($"Logical {context.op.Text} operation");
+        c.Comment("[START] Logical AND/OR operation");
         string op = context.op.Text;
 
         string falseLabel = c.GetLabel("ANDOR_FALSE");
@@ -1080,21 +1095,21 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
         // Evaluar primera condición
         Visit(context.expr(0));
-        var left = c.PopObject(Register.X0); // Resultado en X0
+        var left = c.PopObject(Register.X0);
 
         // Convertir a booleano (0 o 1)
         c.Cmp(Register.X0, 0);
-        c.Cset(Register.X0, "ne"); // X0 = 1 si es verdadero
+        c.Cset(Register.X0, Register.NE);
 
         if (op == "&&")
         {
             // AND lógico: si left es falso, salta a false
-            c.Cbz(Register.X0, falseLabel); // Si es 0, salta
+            c.Cbz(Register.X0, falseLabel);
         }
-        else // ||
+        else
         {
             // OR lógico: si left es verdadero, salta a true
-            c.Cbnz(Register.X0, trueLabel); // Si es 1, salta
+            c.Cbnz(Register.X0, trueLabel);
         }
 
         // Evaluar segunda condición
@@ -1103,7 +1118,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
 
         // Convertir a booleano
         c.Cmp(Register.X0, 0);
-        c.Cset(Register.X0, "ne"); // X0 = 1 si es verdadero
+        c.Cset(Register.X0, Register.NE);
 
         if (op == "&&")
         {
@@ -1128,6 +1143,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
         // Push resultado final
         c.Push(Register.X0);
         c.PushObject(c.BoolObject());
+        c.Comment("[END] Logical AND/OR operation");
 
         return null;
     }
@@ -1137,7 +1153,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
     {
         var id = context.ID().GetText();
         var operation = context.op.Text;
-        c.Comment($"Assign operation: {operation} to {id}");
+        c.Comment("[START] Assignment operation: " + operation);
 
         // 1. Evaluar la expresión derecha
         Visit(context.expr());
@@ -1211,6 +1227,7 @@ public class CompilerVisitor : LanguageBaseVisitor<Object?>
             c.Push(Register.X0);
             c.PushObject(c.IntObject());
         }
+        c.Comment("[END] Assignment operation: " + operation);
 
         return null;
     }
